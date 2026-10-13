@@ -1,0 +1,14 @@
+# Binaries and build output
+/bin/
+*.exe
+*.test
+*.out
+
+# Local config and captured data: real payloads never go in the repo
+.env
+/data/
+*.db
+*.db-*
+
+# Local drafts (DEV post etc.), not part of the project
+drafts/
