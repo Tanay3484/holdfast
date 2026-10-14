@@ -1,0 +1,116 @@
+{{define "content"}}
+<section class="hero">
+  <div class="wrap hero__inner">
+    <div class="hero__text">
+      <p class="eyebrow">For freelance developers who look after their clients' integrations</p>
+      <h1>Every webhook,<br><em>held fast.</em></h1>
+      <p class="lede">When a payment service or GitHub sends a message and your client's app stumbles, that message is usually gone for good. Holdfast keeps every one safe, explains what went wrong in plain words, and sends it again once it's fixed.</p>
+      <div class="cta">
+        <a class="btn btn--primary" href="#demo">Try the live demo</a>
+        <a class="btn" href="#how">How it works</a>
+      </div>
+    </div>
+    <div class="hero__art" aria-hidden="true">
+      <svg viewBox="0 0 420 300" class="flow">
+        <path class="flow__wire" d="M70 150 H350"/>
+        <g class="flow__node" transform="translate(20 110)"><rect width="100" height="80" rx="16"/><text x="50" y="35">Stripe</text><text x="50" y="56" class="flow__small">sends a payment</text></g>
+        <g class="flow__node flow__node--app" transform="translate(300 110)"><rect width="100" height="80" rx="16"/><text x="50" y="35">The shop</text><text x="50" y="56" class="flow__small">stumbles</text></g>
+        <g class="flow__vault" transform="translate(160 70)"><rect width="100" height="160" rx="22" class="flow__vault-bg"/><circle cx="50" cy="38" r="5"/><path d="M50 43v52M38 56h24M32 74a18 18 0 0 0 36 0"/><text x="50" y="132">Holdfast</text></g>
+        <g class="flow__msg flow__msg--a"><rect x="-14" y="-10" width="28" height="20" rx="4"/><path d="M-14 -8l14 9 14-9"/></g>
+        <g class="flow__msg flow__msg--b"><rect x="-14" y="-10" width="28" height="20" rx="4"/><path d="M-14 -8l14 9 14-9"/></g>
+        <g class="flow__held" transform="translate(210 250)"><rect x="-58" y="-14" width="116" height="28" rx="14"/><text y="5">held safely</text></g>
+      </svg>
+    </div>
+  </div>
+</section>
+
+{{if .Board}}
+<section id="demo" class="demo">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Live demo</p>
+      <h2>Break Chai &amp; Co.'s shop. Nothing gets lost.</h2>
+      <p>Chai &amp; Co. sells tea online, and every payment reaches its shop through Holdfast. Press a button to cause a real problem, then watch the dashboard.</p>
+    </div>
+    <div class="demo__grid">
+      <div class="controls">
+        {{range .Demos}}
+        <form method="post" action="/demo/{{.Fault}}" data-async>
+          <button class="control" type="submit">
+            <span class="control__label">{{.Label}}</span>
+            <span class="control__explain">{{.Explain}}</span>
+            {{if and .Gated (ne .Level.State "unlocked")}}<span class="control__lock">{{template "lock"}} Works properly after level {{.Level.N}}</span>{{end}}
+          </button>
+        </form>
+        {{end}}
+        <p class="controls__foot">Everyone sees the same demo shop. Demo events are cleared after three days.</p>
+      </div>
+      <div class="dash" id="board" data-poll="/fragments/board/{{.Board.Route}}">{{template "board" .}}</div>
+    </div>
+  </div>
+</section>
+{{end}}
+
+<section id="how" class="how">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">How it works</p>
+      <h2>Five promises, each kept by code.</h2>
+      <p>The model explains. It never decides what happens to a message.</p>
+    </div>
+    <ol class="steps">
+      <li class="step">
+        <span class="step__n">1</span>
+        <h3>Saved before anything else</h3>
+        <p>The moment a message arrives, Holdfast writes it to disk. Only then does it tell the sender "got it". If anything crashes after that, the message is still there.</p>
+      </li>
+      <li class="step">
+        <span class="step__n">2</span>
+        <h3>Checked at the door</h3>
+        {{if unlocked "signature"}}
+        <p>Every message carries a signature only the real sender can make. Holdfast checks it first. Anything that doesn't match is kept aside, never passed on.</p>
+        <p class="step__demo"><span class="sig sig--ok">{{template "check"}} Signed by Stripe</span> <span class="sig sig--bad">Signature didn't match</span></p>
+        {{else}}{{template "wip" (level "signature")}}{{end}}
+      </li>
+      <li class="step">
+        <span class="step__n">3</span>
+        <h3>Passed on, patiently</h3>
+        {{if unlocked "retries"}}
+        <p>If the app is down or busy, Holdfast waits a little longer each time and tries again. If the app says no for a reason a retry won't fix, it stops and holds the message instead of hammering away.</p>
+        <p class="step__demo"><span class="try-chip try-chip--held">Try 1 · down</span><span class="try-chip try-chip--held">Try 2 · down</span><span class="try-chip try-chip--ok">Try 3 · arrived</span></p>
+        {{else}}{{template "wip" (level "retries")}}{{end}}
+      </li>
+      <li class="step">
+        <span class="step__n">4</span>
+        <h3>Explained in plain words</h3>
+        {{if unlocked "changes"}}
+        <p>Code compares a failed message with the last one that worked and finds exactly what moved. Gemma turns that into a sentence your client understands, and a fix for you.</p>
+        <p class="step__demo"><code class="chg chg--removed">customer_id removed</code> <code class="chg chg--added">customer.id added</code></p>
+        {{else}}{{template "wip" (level "changes")}}{{end}}
+      </li>
+      <li class="step">
+        <span class="step__n">5</span>
+        <h3>Sent again, never twice</h3>
+        {{if unlocked "resend"}}
+        <p>Once it's fixed, one button sends everything held, in the order it arrived. Anything already delivered, or that arrived twice, is left out, so a payment is never counted twice.</p>
+        <p class="step__demo"><span class="pill pill--delivered">Arrived</span> <span class="pill pill--duplicate">Duplicate stopped</span></p>
+        {{else}}{{template "wip" (level "resend")}}{{end}}
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section class="open">
+  <div class="wrap open__inner">
+    <div>
+      <p class="eyebrow">Why an open model</p>
+      <h2>Your clients' payments stay with you.</h2>
+    </div>
+    <ul class="open__list">
+      <li><strong>Private.</strong> Messages carry names, addresses and amounts. Gemma runs on the same server as Holdfast, so none of it goes to an AI company.</li>
+      <li><strong>Cheap to run.</strong> No bill per message. A small model on one server explains every failure.</li>
+      <li><strong>Checked.</strong> The model picks from a fixed list of causes and code checks every word it writes for the client. If it gets something wrong, the built-in rules answer instead.</li>
+    </ul>
+  </div>
+</section>
+{{end}}

@@ -1,0 +1,53 @@
+{{define "content"}}
+<div class="wrap narrow">
+  <section class="game-head{{if .Game.Done}} game-head--done{{end}}">
+    <p class="eyebrow">Unlock board</p>
+    <h1>{{if .Game.Done}}Every level unlocked. Ship it.{{else}}Write the code, reveal the site.{{end}}</h1>
+    <p class="lede">Holdfast's four core pieces are yours to write by hand. Each one you finish unlocks a part of this website. The checks run when the server starts, so restart it after a change.</p>
+    <div class="meter" role="img" aria-label="{{.Game.Unlocked}} of {{.Game.Total}} levels unlocked">
+      {{range $i, $r := .Game.Levels}}<span class="meter__seg meter__seg--{{$r.State}}"></span>{{end}}
+    </div>
+    <p class="meter__label">{{.Game.Unlocked}} of {{.Game.Total}} levels unlocked</p>
+  </section>
+
+  <aside class="howto">
+    <h2>How to play</h2>
+    <ol>
+      <li>Open the file for the next level and replace the line marked <code>TODO(@human)</code>.</li>
+      <li>Run <code>go run ./cmd/unlock</code> for the board in your terminal (add <code>-v</code> to see every check).</li>
+      <li>Restart the server with <code>go run ./cmd/holdfast</code> and reload this page.</li>
+      <li>Write real tests beside your code too. These checks are a gate, not a test suite.</li>
+    </ol>
+  </aside>
+
+  <ol class="levels">
+    {{range .Game.Levels}}
+    <li class="level level--{{.State}}">
+      <span class="level__n">{{.N}}</span>
+      <div class="level__body">
+        <div class="level__top">
+          <h2>{{.Title}}</h2>
+          <span class="badge badge--{{.State}}">{{if eq .State "unlocked"}}Unlocked{{else if eq .State "cracked"}}{{.Passed}}/{{.Total}} checks{{else}}Locked{{end}}</span>
+        </div>
+        <p class="level__reveals"><strong>Reveals:</strong> {{.Reveals}}</p>
+        <p class="level__file"><code>{{.File}}</code> <button class="link" type="button" data-copy-text="{{.File}}">Copy path</button> · task {{.Task}}</p>
+        <div class="checks-bar"><span style="width: {{percent .}}%"></span></div>
+        <details{{if eq .State "cracked"}} open{{end}}>
+          <summary>The {{.Total}} checks</summary>
+          <ul class="checks">
+            {{range .Outcomes}}<li class="{{if .Passed}}pass{{else}}fail{{end}}"><span>{{if .Passed}}✓{{else}}·{{end}}</span> {{.Name}}{{if not .Passed}}<small>{{.Detail}}</small>{{end}}</li>{{end}}
+          </ul>
+        </details>
+      </div>
+    </li>
+    {{end}}
+    <li class="level level--{{if .Game.Done}}unlocked level--finale{{else}}locked{{end}}">
+      <span class="level__n">5</span>
+      <div class="level__body">
+        <div class="level__top"><h2>Ship it</h2><span class="badge badge--{{if .Game.Done}}unlocked{{else}}locked{{end}}">{{if .Game.Done}}Unlocked{{else}}Locked{{end}}</span></div>
+        <p class="level__reveals">{{if .Game.Done}}The whole site is live and the progress link is gone from the menu. Next: the evaluation run, the crash test, and the post.{{else}}Unlock all four levels to finish.{{end}}</p>
+      </div>
+    </li>
+  </ol>
+</div>
+{{end}}

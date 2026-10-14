@@ -1,0 +1,12 @@
+{{define "content"}}{{with .Board}}
+<section class="route">
+  <div class="wrap narrow">
+    <div class="section-head">
+      <p class="eyebrow">Connection · {{.Route}}</p>
+      <h1>{{.Client}}</h1>
+      <p>Providers send to <code>/in/{{.Route}}</code>. Everything that arrives is listed here.</p>
+    </div>
+    <div class="dash" id="board" data-poll="/fragments/board/{{.Route}}">{{template "board" $}}</div>
+  </div>
+</section>
+{{end}}{{end}}
