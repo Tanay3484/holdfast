@@ -1,0 +1,76 @@
+{{define "logo"}}<svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" class="logo__bg"/><circle cx="16" cy="8" r="2.4" class="logo__line"/><path class="logo__line" d="M16 10.4V25M11 14.5h10M8.6 18.8a7.4 7.4 0 0 0 14.8 0"/></svg>{{end}}
+
+{{define "lock"}}<svg class="i-lock" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="2"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>{{end}}
+
+{{define "check"}}<svg class="i" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 10.5l3.2 3.2L15 7"/></svg>{{end}}
+
+{{/* A section that is still locked. Takes an unlock.Result. */}}
+{{define "wip"}}<div class="wip wip--{{.State}}">
+  <div class="wip__ghost" aria-hidden="true"><span></span><span></span><span></span></div>
+  <div class="wip__body">
+    <span class="wip__badge">{{template "lock"}} {{if eq .State "cracked"}}Almost there · {{.Passed}}/{{.Total}} checks{{else}}Locked · Level {{.N}} · {{.Title}}{{end}}</span>
+    <p class="wip__title">WIP: write <code>{{.File}}</code> to reveal how this will look.</p>
+    {{if eq .State "cracked"}}{{with index .Failing 0}}<p class="wip__fail">Next failing check: {{.Check}}</p>{{end}}{{end}}
+    <p class="wip__hint">Then run <code>go run ./cmd/unlock</code> and restart the server. <a href="/progress">See the board</a></p>
+  </div>
+</div>{{end}}
+
+{{define "card"}}<li class="card card--{{.Status}}">
+  <a href="/events/{{.ID}}">
+    <span class="card__dot" aria-hidden="true"></span>
+    <span class="card__main">
+      <span class="card__top"><span class="card__what">{{.What}}</span><time datetime="{{iso .Received}}">{{clock .Received}}</time></span>
+      <span class="card__bottom"><span class="pill pill--{{.Status}}">{{.StatusLabel}}</span><span class="card__why">{{if .Diagnosis}}{{.Diagnosis.Title}}{{else}}{{.Reason}}{{end}}</span></span>
+    </span>
+  </a>
+</li>{{end}}
+
+{{/* The live dashboard for one route. Polled every two seconds. */}}
+{{define "board"}}{{with .Board}}
+<div class="verdict verdict--{{.Verdict.Tone}}">
+  <span class="verdict__mark" aria-hidden="true"></span>
+  <div class="verdict__text">
+    <h3>{{.Verdict.Title}}</h3>
+    <p>{{.Verdict.Sub}}</p>
+  </div>
+  {{if gt .Held 0}}
+    {{if unlocked "resend"}}
+    <form method="post" action="/r/{{.Route}}/resend" data-async class="verdict__action">
+      <button class="btn btn--small" type="submit">Send all held again</button>
+    </form>
+    {{else}}{{with level "resend"}}<a class="wip-inline" href="/progress">{{template "lock"}} Resend unlocks at level {{.N}}</a>{{end}}{{end}}
+  {{end}}
+</div>
+
+{{if .Note}}
+<div class="note">
+  <div class="note__head">
+    <span class="eyebrow">Note for {{.Client}}</span>
+    <button class="link" type="button" data-copy="#note-{{.Route}}">Copy</button>
+  </div>
+  <p id="note-{{.Route}}">{{.Note}}</p>
+  <p class="byline">{{if .NoteByAI}}Worded by Gemma. Every number checked by code.{{else}}Written by code from the facts.{{end}}</p>
+</div>
+{{end}}
+
+<div class="feed">
+  <div class="feed__head"><span class="eyebrow">What arrived</span><span class="feed__count">newest first</span></div>
+  <ol class="timeline">
+    {{range .Events}}{{template "card" .}}{{else}}<li class="empty">Nothing yet.</li>{{end}}
+  </ol>
+</div>
+
+{{if .IsDemo}}
+<div class="ledger">
+  <div class="ledger__head">
+    <span class="eyebrow">{{.Client}}'s order book</span>
+    <span class="shop shop--{{.ShopStatus}}"><span class="shop__dot"></span>Shop is {{.ShopStatus}}</span>
+  </div>
+  <p class="ledger__sum">{{.Recorded}} payments recorded by the shop{{if .Repeats}} · <strong class="bad">{{.Repeats}} counted twice</strong>{{end}}</p>
+  <ul class="ledger__list">
+    {{range .Orders}}<li{{if .Repeat}} class="repeat"{{end}}><span class="ledger__who">{{.Customer}}</span><span class="ledger__item">{{.Item}}</span><span class="ledger__amt">{{rupees .Amount}}</span>{{if .Repeat}}<em>counted twice</em>{{end}}</li>
+    {{else}}<li class="empty">No payments recorded yet.</li>{{end}}
+  </ul>
+</div>
+{{end}}
+{{end}}{{end}}

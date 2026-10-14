@@ -1,0 +1,11 @@
+.git
+.github
+.claude
+data
+drafts
+specs
+ollama
+*.db
+*.db-*
+*.exe
+.env

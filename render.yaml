@@ -1,0 +1,52 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+#
+#   holdfast         public relay + website, SQLite on a 1 GB persistent disk
+#   holdfast-ollama  private Ollama server with gemma3:1b baked into the image
+#
+# Both must be in the same region to reach each other privately.
+# Cost note: Week 1's golden-hour-ollama already serves gemma3:1b in this region. To share it instead,
+# delete the holdfast-ollama service below and set HF_OLLAMA_URL to golden-hour-ollama:11434.
+# See specs/001-holdfast-mvp/design.md §8.
+services:
+  - type: web
+    name: holdfast
+    runtime: docker
+    region: singapore
+    plan: 0.5c-512mb
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    disk:
+      name: holdfast-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: HF_DB
+        value: /var/data/holdfast.db
+      - key: HF_MODEL
+        value: gemma3:1b
+      - key: HF_MODEL_TIMEOUT
+        value: 120s
+      # 1 thread per CPU: Ollama's default uses every host core and is slower on a 1-CPU plan.
+      - key: HF_MODEL_THREADS
+        value: "1"
+      - key: HF_TIMEZONE
+        value: Asia/Kolkata
+      - key: HF_ADMIN_TOKEN
+        generateValue: true
+      # JSON list of real routes, set in the dashboard so secrets never enter the repo.
+      - key: HF_ROUTES
+        sync: false
+      - key: HF_OLLAMA_URL
+        fromService:
+          type: pserv
+          name: holdfast-ollama
+          property: hostport
+
+  - type: pserv
+    name: holdfast-ollama
+    runtime: docker
+    region: singapore
+    plan: 1c-2g
+    dockerfilePath: ./ollama/Dockerfile
+    dockerContext: ./ollama

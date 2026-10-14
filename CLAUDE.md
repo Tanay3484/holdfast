@@ -9,8 +9,29 @@ holds what the app fails on, diagnoses why, and resends safely. Code does the ch
 Gemma names the cause and writes an incident note a non-technical client can read. The customer is a
 freelance developer or small agency maintaining client integrations.
 
-Phase 0 is in review: `specs/000-brief/brief.md` is `Status: Draft`. The repo holds scaffolding only. No
-feature code until the brief, requirements, design and tasks are approved.
+Where things stand (2026-10-14): the brief is approved. On Tanay's request, requirements, design and tasks
+for `specs/001-holdfast-mvp/` were drafted and every `@ai` setup task (T1–T13) was built in one day, ahead
+of approval. Those three files are `Status: Draft` and need Tanay's review. Open: the four `@human` levels
+(H1–H4) and the evidence and launch tasks (T14–T21).
+
+## The unlock game
+
+The four `@human` packages (`verify`, `policy`, `shape`, `replay`) start as stubs returning
+`wip.ErrLocked`. `internal/unlock/levels.go` holds known-answer checks for each; a level is locked,
+cracked or unlocked. The website shows a WIP tile for every part a locked level powers, and
+`go run ./cmd/unlock` prints the board. Rules for agents:
+
+- Never write, complete or paste the body of an `@human` function. Use the `task-coach` subagent for hints,
+  tests-first and reviews.
+- Never weaken or delete a check in `levels.go` to make a level pass. If a check is wrong, propose the fix.
+- Code that calls an `@human` function goes through `relay.guard` and must work while it is locked.
+- `@ai` tests must pass whether the levels are locked or unlocked.
+
+## Subagents (`.claude/agents/`)
+
+- `task-coach`: hints, tests-first and reviews for H1–H4. Read-only plus Bash; never implements.
+- `spec-writer`: drafts one spec phase at a time.
+- `post-writer`: drafts `drafts/devto-submission.md` from the evidence. Never publishes.
 
 Dropped on 2026-10-13, do not propose again: "Bill Check-up" (cloud bill anomaly finder). Tanay has no
 personal cloud account with spend history, so it could only be proven on generated data.
@@ -66,8 +87,12 @@ Tiger Data, .tech Domain (new this week).
 
 ## Commands
 
+- Run: `go run ./cmd/holdfast` (http://localhost:8080; needs Ollama for model diagnoses, `HF_MODEL=gemma3:4b`)
+- Progress board: `go run ./cmd/unlock` (`-v` for every check)
 - Test / vet / format check: `go test ./...` · `go vet ./...` · `gofmt -l .` (must print nothing)
-- Run and evaluation commands: to be added when the design is approved.
+- Screenshots for UI checks: headless Edge, `msedge --headless=new --window-size=1280,1600 --screenshot=… URL`
+  (add `--blink-settings=preferredColorScheme=1` for light mode). Docker Desktop is usually not running.
+- Evaluation and crash test: to be added (T15, T16).
 
 ## Conventions
 

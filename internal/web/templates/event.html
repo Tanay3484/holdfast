@@ -1,0 +1,92 @@
+{{define "content"}}{{with .Event}}
+<div class="wrap narrow">
+  <nav class="crumbs"><a href="{{if .Public}}/#demo{{else}}/r/{{.Route}}{{end}}">← Back to {{.Client}}</a></nav>
+  <div id="event"{{if not .Final}} data-poll="/fragments/event/{{.ID}}"{{end}}>{{template "event-live" $}}</div>
+</div>
+{{end}}{{end}}
+
+{{define "event-live"}}{{with .Event}}{{if .Final}}<span data-final hidden></span>{{end}}
+<header class="ev-head">
+  <p class="eyebrow">{{.Provider}} · received {{date .Received}}</p>
+  <h1>{{.What}}</h1>
+  <span class="pill pill--{{.Status}}">{{.StatusLabel}}</span>
+</header>
+
+<section class="story story--{{.Status}}">
+  {{if eq .Status "held"}}
+    {{if .Diagnosis}}
+      <h2>{{.Diagnosis.Title}}</h2>
+      <p class="story__summary">{{.Diagnosis.Summary}}</p>
+      <p class="byline">{{if eq .Diagnosis.By "model"}}Explained by Gemma, checked by code.{{else}}Explained by Holdfast's built-in rules.{{end}}{{with .Diagnosis.Note}} {{.}}{{end}}</p>
+    {{else}}
+      <h2><span class="spinner" aria-hidden="true"></span>Working out what went wrong…</h2>
+      <p class="story__summary">It's safe. Gemma is reading what happened; this takes a few seconds.</p>
+    {{end}}
+  {{else if eq .Status "delivered"}}
+    <h2>It arrived</h2>
+    <p class="story__summary">{{.Client}} accepted it{{if gt .Attempts 1}} on try {{.Attempts}}{{end}}. Nothing more to do.</p>
+  {{else if eq .Status "duplicate"}}
+    <h2>A copy, stopped</h2>
+    <p class="story__summary">{{.Reason}}</p>
+  {{else}}
+    <h2><span class="spinner" aria-hidden="true"></span>On its way</h2>
+    <p class="story__summary">{{.Reason}}</p>
+  {{end}}
+</section>
+
+<div class="panels">
+  <section class="panel">
+    <h3>Is it really from {{.Provider}}?</h3>
+    {{if unlocked "signature"}}<p class="sig sig--{{.SignatureTone}}">{{.SignatureText}}</p>{{else}}{{template "wip" (level "signature")}}{{end}}
+  </section>
+
+  <section class="panel">
+    <h3>What happened on each try</h3>
+    {{if unlocked "retries"}}
+    <ol class="tries">
+      {{range .History}}<li class="try try--{{.Tone}}"><time>{{clock .At}}</time><strong>Try {{.N}} · {{.Answer}}</strong><span>{{.Reason}}</span></li>
+      {{else}}<li class="muted">Not tried yet.</li>{{end}}
+    </ol>
+    {{else}}{{template "wip" (level "retries")}}{{end}}
+  </section>
+
+  <section class="panel">
+    <h3>What changed since the last one that worked</h3>
+    {{if unlocked "changes"}}
+      {{if .ChangesKnown}}
+        {{if .Changes}}
+        <ul class="changes">{{range .Changes}}<li><code class="chg chg--{{.Kind}}">{{path .Path}}</code> {{.Kind}}{{if .Was}}{{if .Now}}: {{.Was}} → {{.Now}}{{end}}{{end}}</li>{{end}}</ul>
+        {{else}}<p>Nothing. It has the same layout as the last one {{.Client}} accepted.</p>{{end}}
+      {{else}}<p class="muted">There's no earlier message of this kind that worked, so there's nothing to compare with yet.</p>{{end}}
+    {{else}}{{template "wip" (level "changes")}}{{end}}
+  </section>
+
+  <section class="panel">
+    <h3>Send it again</h3>
+    {{if unlocked "resend"}}
+      {{if eq .Status "held"}}
+      <form method="post" action="/events/{{.ID}}/resend" data-async><button class="btn btn--primary" type="submit">Send it again</button></form>
+      <p class="muted">Holdfast first checks it is genuine and hasn't already been delivered.</p>
+      {{else}}<p class="muted">Only held messages can be sent again.</p>{{end}}
+    {{else}}{{template "wip" (level "resend")}}{{end}}
+  </section>
+</div>
+
+{{with .Diagnosis}}
+<details class="dev" open>
+  <summary>For your developer</summary>
+  <p>{{.Fix}}</p>
+  <p class="muted">Cause <code>{{.Cause}}</code>{{if ne .Cause .RulesCause}} · the built-in rules said <code>{{.RulesCause}}</code>{{end}}</p>
+</details>
+{{end}}
+
+<details class="raw">
+  <summary>The raw message</summary>
+  <h4>Headers</h4>
+  <dl class="headers">{{range .Headers}}<dt>{{.Name}}</dt><dd>{{.Value}}</dd>{{end}}</dl>
+  <h4>Body</h4>
+  <pre><code>{{.Body}}</code></pre>
+  {{with .LastResponse}}<h4>Last answer from {{$.Event.Client}}</h4>
+  <pre><code>{{.}}</code></pre>{{end}}
+</details>
+{{end}}{{end}}
