@@ -113,9 +113,16 @@ behaviour of its demo buttons.
 
 ## 8. Hosting
 
-`render.yaml`: the `holdfast` web service (Docker, 0.5 CPU / 512 MB, 1 GB disk at `/var/data`) and the
-`holdfast-ollama` private service (1 CPU / 2 GB, gemma3:1b baked in), Singapore. Real routes go in
-`HF_ROUTES` in the dashboard; `HF_ADMIN_TOKEN` is generated.
+`render.yaml`, the same shape as Week 1: the `holdfast` web service (Docker, `0.5c-512mb`, 1 GB disk at
+`/var/data`) and the `holdfast-ollama` private service with the model baked into its image, Singapore.
+Real routes go in `HF_ROUTES` in the dashboard; `HF_ADMIN_TOKEN` is generated.
+
+Model: **gemma3:4b on `2c-4g`** (Tanay, 2026-10-18). On gemma3:1b the diagnoses were vague or wrong
+often enough that the code checks replaced most of them. gemma3:4b needs about 3.5 GB loaded, so
+`2c-4g` is the smallest plan that fits. Measured on the laptop CPU with 2 threads: 740 prompt tokens in
+15 s, 115 output tokens in 14 s, so roughly 30 s; Render's CPUs are likely slower. `HF_MODEL_TIMEOUT` is
+240 s, and the event page shows the rules' answer at once, marked as a first answer, until Gemma's
+replaces it (R4.10). Scale the Ollama service down or suspend it after judging.
 
 ## 9. Evaluation (to build, T14 and T15)
 
@@ -131,9 +138,7 @@ behaviour of its demo buttons.
 
 ## 10. Open questions
 
-1. **Share Week 1's Ollama?** `golden-hour-ollama` already runs gemma3:1b in the same region. Pointing
-   `HF_OLLAMA_URL` at it saves the 1c-2g service; the cost is that both projects share one slow CPU model.
-   Recommendation: share, to protect the credit.
+1. ~~Share Week 1's Ollama?~~ Decided 2026-10-18: no. Holdfast runs its own gemma3:4b service (§8).
 2. **Proposed brief edit.** Claim 2 says "none delivered twice". Delivery is at least once (§4): Holdfast
    never forwards a copy it recognises and never resends what was delivered, but an app that dies after
    processing a request can see it again with the same `Holdfast-Event-Id`. Proposed wording: "no event is

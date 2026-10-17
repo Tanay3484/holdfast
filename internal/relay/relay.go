@@ -492,16 +492,30 @@ func (r *Relay) diagnose(ctx context.Context, id int64) {
 		r.Log.Error("facts failed", "event", id, "err", err)
 		return
 	}
+	// A model on a small CPU can take a minute or two, so show the rules' answer first and replace it.
+	if r.Diagnoser.Model != nil {
+		quick := r.Diagnoser.Diagnose(ctx, f, diagnose.RulesOnly)
+		quick.Pending = true
+		if !r.saveDiagnosis(ctx, id, quick) {
+			return
+		}
+	}
 	d := r.Diagnoser.Diagnose(ctx, f, diagnose.Combined)
 	if d.ModelError != "" {
 		r.Log.Warn("model unavailable; used rules", "event", id, "err", d.ModelError)
 	}
+	if r.saveDiagnosis(ctx, id, d) {
+		r.refreshNote(ctx, ev.Route)
+	}
+}
+
+func (r *Relay) saveDiagnosis(ctx context.Context, id int64, d diagnose.Diagnosis) bool {
 	raw, _ := json.Marshal(d)
 	if err := r.Store.SetDiagnosis(ctx, id, string(raw)); err != nil {
 		r.Log.Error("save diagnosis failed", "event", id, "err", err)
-		return
+		return false
 	}
-	r.refreshNote(ctx, ev.Route)
+	return true
 }
 
 // Facts collects what code knows about an event, for the diagnoser.

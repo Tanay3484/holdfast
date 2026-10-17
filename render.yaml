@@ -1,12 +1,12 @@
 # Render Blueprint: https://render.com/docs/blueprint-spec
 #
 #   holdfast         public relay + website, SQLite on a 1 GB persistent disk
-#   holdfast-ollama  private Ollama server with gemma3:1b baked into the image
+#   holdfast-ollama  private Ollama server with gemma3:4b baked into the image (2 CPU / 4 GB)
 #
 # Both must be in the same region to reach each other privately.
-# Cost note: Week 1's golden-hour-ollama already serves gemma3:1b in this region. To share it instead,
-# delete the holdfast-ollama service below and set HF_OLLAMA_URL to golden-hour-ollama:11434.
-# See specs/001-holdfast-mvp/design.md §8.
+# gemma3:4b, not 1b: on 1b the diagnoses were wrong or vague often enough that the built-in rules
+# replaced most of them (design.md §5). The 4b model needs about 3.5 GB loaded, so 2c-4g is the
+# smallest plan that fits. Scale it down or suspend it after judging to save credit.
 services:
   - type: web
     name: holdfast
@@ -24,12 +24,13 @@ services:
       - key: HF_DB
         value: /var/data/holdfast.db
       - key: HF_MODEL
-        value: gemma3:1b
+        value: gemma3:4b
+      # A 4b answer on 2 CPUs can take a minute or two. The page shows the rules' answer meanwhile.
       - key: HF_MODEL_TIMEOUT
-        value: 120s
-      # 1 thread per CPU: Ollama's default uses every host core and is slower on a 1-CPU plan.
+        value: 240s
+      # One thread per CPU of the Ollama service.
       - key: HF_MODEL_THREADS
-        value: "1"
+        value: "2"
       - key: HF_TIMEZONE
         value: Asia/Kolkata
       - key: HF_ADMIN_TOKEN
@@ -47,6 +48,6 @@ services:
     name: holdfast-ollama
     runtime: docker
     region: singapore
-    plan: 1c-2g
+    plan: 2c-4g
     dockerfilePath: ./ollama/Dockerfile
     dockerContext: ./ollama
