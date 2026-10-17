@@ -114,8 +114,8 @@ func TestPagesRender(t *testing.T) {
 	f := setup(t)
 	for path, want := range map[string]string{
 		"/":                          "held fast",
-		"/demo":                      "Break Chai &amp; Co.",
-		"/live":                      "Sign in with GitHub",
+		"/demo":                      "Break the shop.",
+		"/live":                      "Continue with GitHub",
 		"/progress":                  "Unlock board",
 		"/fragments/board/demo-shop": "Waiting for the first payment",
 		"/healthz":                   "ok",
@@ -155,7 +155,7 @@ func TestDemoRefusesCrossSitePosts(t *testing.T) {
 func TestLiveGitHubConnection(t *testing.T) {
 	f := setup(t)
 	me := signIn(t, f)
-	if w := do(f.h, http.MethodGet, "/live", nil, me); !strings.Contains(w.Body.String(), "No connections yet") {
+	if w := do(f.h, http.MethodGet, "/live", nil, me); !strings.Contains(w.Body.String(), "Connect your first repository") {
 		t.Fatalf("signed-in live page: %s", w.Body.String())
 	}
 	if w := do(f.h, http.MethodGet, "/live/new", nil, me); !strings.Contains(w.Body.String(), "dev-user/shop-backend") {
@@ -233,7 +233,7 @@ func TestStripeConnectionNeedsWhsecPrefix(t *testing.T) {
 	}
 	route := strings.TrimSuffix(strings.TrimPrefix(w.Header().Get("Location"), "/r/"), "?new=1")
 	page := do(f.h, http.MethodGet, "/r/"+route, nil, me).Body.String()
-	if !strings.Contains(page, "Not added yet") || !strings.Contains(page, "https://holdfast.example/in/"+route) {
+	if !strings.Contains(page, "Signatures aren't checked until you add it") || !strings.Contains(page, "https://holdfast.example/in/"+route) {
 		t.Fatal("the Stripe steps are missing")
 	}
 	if w := do(f.h, http.MethodPost, "/r/"+route+"/secret", url.Values{"secret": {"whsec_abc"}}, me); w.Code != http.StatusSeeOther {

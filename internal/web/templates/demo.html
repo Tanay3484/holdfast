@@ -1,20 +1,16 @@
 {{define "content"}}
-<div class="banner banner--demo">
-  <div class="wrap banner__inner">
-    <span class="banner__tag"><span class="modes__dot modes__dot--demo"></span>Demo mode</span>
-    <p>Chai &amp; Co. is a pretend tea shop and its customers are made up. Everything else (the relay, retries, signature checks, Gemma's explanations) is the real thing. <a href="/live">Try it on your own repo →</a></p>
-  </div>
-</div>
-
 <section class="demo">
   <div class="wrap">
-    <div class="section-head section-head--tight">
-      <h1>Break Chai &amp; Co.'s shop. Nothing gets lost.</h1>
-      <p>Every payment reaches the shop through Holdfast. Press a button to cause a real problem, then watch the dashboard. Open any payment to see what happened, and why.</p>
+    <div class="demo__head">
+      <div>
+        <span class="kicker"><span class="modes__dot modes__dot--demo"></span>Demo · made-up shop, real engine</span>
+        <h1>Break the shop.<br><em>Lose nothing.</em></h1>
+      </div>
+      <a class="btn btn--gh" href="/live">{{template "gh"}}<span>Try it on your repo</span></a>
     </div>
     <div class="demo__grid">
       <div class="controls">
-        <p class="controls__head eyebrow">Cause a problem</p>
+        <p class="controls__head eyebrow">Pick a problem</p>
         {{range .Demos}}
         <form method="post" action="/demo/{{.Fault}}" data-async>
           <button class="control control--{{.Fault}}" type="submit">
@@ -23,7 +19,6 @@
           </button>
         </form>
         {{end}}
-        <p class="controls__foot">Everyone sees the same demo shop. Demo events are cleared after three days.</p>
       </div>
       <div class="dash" id="board" data-poll="/fragments/board/{{.Board.Route}}">{{template "board" .}}</div>
     </div>

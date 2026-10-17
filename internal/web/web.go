@@ -5,8 +5,10 @@ package web
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"crypto/subtle"
 	"embed"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -58,6 +60,7 @@ type Server struct {
 	Options
 	Board func() unlock.Board
 	pages map[string]*template.Template
+	asset string // fingerprint of the CSS and JS, so browsers fetch them again whenever they change
 }
 
 // New parses the templates.
@@ -68,7 +71,7 @@ func New(o Options) (*Server, error) {
 	if o.TestApp == nil {
 		o.TestApp = testapp.New()
 	}
-	s := &Server{Options: o, Board: unlock.Current, pages: map[string]*template.Template{}}
+	s := &Server{Options: o, Board: unlock.Current, pages: map[string]*template.Template{}, asset: fingerprint()}
 	for _, page := range []string{"index.html", "demo.html", "live.html", "connect.html", "route.html", "event.html", "progress.html"} {
 		t, err := template.New("").Funcs(s.funcs()).ParseFS(assets, "templates/base.html", "templates/partials.html", "templates/"+page)
 		if err != nil {
@@ -110,6 +113,7 @@ func (s *Server) Routes(mux *http.ServeMux) {
 type page struct {
 	Title   string
 	Version string
+	Asset   string
 	Mode    string // home | demo | live
 	User    *store.User
 	Game    unlock.Board
@@ -123,7 +127,7 @@ type page struct {
 }
 
 func (s *Server) newPage(r *http.Request, title, mode string) page {
-	p := page{Title: title, Version: buildinfo.Version, Mode: mode, Game: s.Board()}
+	p := page{Title: title, Version: buildinfo.Version, Asset: s.asset, Mode: mode, Game: s.Board()}
 	if u, ok := s.currentUser(r); ok {
 		p.User = &u
 	}
@@ -425,6 +429,16 @@ func visitor(r *http.Request) string {
 func (s *Server) fail(w http.ResponseWriter, err error) {
 	s.Log.Error("request failed", "err", err)
 	http.Error(w, "Something went wrong. Please try again.", http.StatusInternalServerError)
+}
+
+// fingerprint hashes the static files that pages link with ?v=.
+func fingerprint() string {
+	h := sha256.New()
+	for _, name := range []string{"static/app.css", "static/app.js"} {
+		b, _ := assets.ReadFile(name)
+		h.Write(b)
+	}
+	return hex.EncodeToString(h.Sum(nil))[:12]
 }
 
 func cacheFor(d time.Duration, h http.Handler) http.Handler {
