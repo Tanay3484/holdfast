@@ -92,6 +92,7 @@ type Diagnosis struct {
 	RulesCause Cause  `json:"rules_cause"`
 	Note       string `json:"note,omitempty"`        // why the model's answer was not used, if it wasn't
 	ModelError string `json:"model_error,omitempty"` // for the logs
+	Pending    bool   `json:"pending,omitempty"`     // rules' answer shown while the model is still writing
 }
 
 // Mode chooses who answers. The product uses Combined; the evaluation compares all three.

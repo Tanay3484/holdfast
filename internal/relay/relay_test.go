@@ -2,6 +2,7 @@ package relay
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/Tanay3484/holdfast/internal/config"
 	"github.com/Tanay3484/holdfast/internal/diagnose"
+	"github.com/Tanay3484/holdfast/internal/ollama"
 	"github.com/Tanay3484/holdfast/internal/policy"
 	"github.com/Tanay3484/holdfast/internal/store"
 )
@@ -151,5 +153,52 @@ func TestRetryAfterParsing(t *testing.T) {
 		if got := retryAfter(in); got != want {
 			t.Errorf("retryAfter(%q) = %s, want %s", in, got, want)
 		}
+	}
+}
+
+// slowModel answers only when released, so the test can look at the page in between.
+type slowModel struct{ release chan struct{} }
+
+func (m slowModel) ChatJSON(_ context.Context, _ []ollama.Message, _ any, out any) error {
+	<-m.release
+	return json.Unmarshal([]byte(`{"cause":"rejected_by_app","summary":"Asha's payment was turned away by the shop. It is kept safe and can be sent again later.","fix":"Check the shop's validation."}`), out)
+}
+
+func TestRulesAnswerShowsWhileTheModelWrites(t *testing.T) {
+	app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "nope", http.StatusUnprocessableEntity)
+	}))
+	defer app.Close()
+	r, _ := newRelay(t, app.URL)
+	m := slowModel{release: make(chan struct{})}
+	r.Diagnoser = diagnose.Diagnoser{Model: m}
+	post(r, "shop", `{"type":"order.paid"}`)
+	ctx := context.Background()
+	due, _ := r.Store.Due(ctx, time.Now().Add(time.Second), 10)
+	r.Deliver(ctx, due[0])
+
+	done := make(chan struct{})
+	go func() { r.diagnose(ctx, due[0].ID); close(done) }()
+
+	read := func() diagnose.Diagnosis {
+		ev, _ := r.Store.Get(ctx, due[0].ID)
+		var d diagnose.Diagnosis
+		_ = json.Unmarshal([]byte(ev.Diagnosis), &d)
+		return d
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for read().By == "" && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if d := read(); d.By != "rules" || !d.Pending {
+		t.Fatalf("while the model writes, want the rules' answer marked pending, got %+v", d)
+	}
+	if evs, _ := r.Store.Undiagnosed(ctx); len(evs) != 1 {
+		t.Fatal("a pending diagnosis must be picked up again after a restart")
+	}
+	close(m.release)
+	<-done
+	if d := read(); d.By != "model" || d.Pending {
+		t.Fatalf("after the model answers: %+v", d)
 	}
 }

@@ -17,7 +17,11 @@
     {{if .Diagnosis}}
       <h2>{{.Diagnosis.Title}}</h2>
       <p class="story__summary">{{.Diagnosis.Summary}}</p>
+      {{if .Diagnosis.Pending}}
+      <p class="byline"><span class="spinner spinner--small" aria-hidden="true"></span>A first answer from Holdfast's built-in rules. Gemma is writing a fuller one; it appears here by itself, usually within a minute or two.</p>
+      {{else}}
       <p class="byline">{{if eq .Diagnosis.By "model"}}Explained by Gemma, checked by code.{{else}}Explained by Holdfast's built-in rules.{{end}}{{with .Diagnosis.Note}} {{.}}{{end}}</p>
+      {{end}}
     {{else}}
       <h2><span class="spinner" aria-hidden="true"></span>Working out what went wrong…</h2>
       <p class="story__summary">It's safe. Gemma is reading what happened; this takes a few seconds.</p>
