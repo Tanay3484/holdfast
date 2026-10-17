@@ -39,7 +39,7 @@ var Causes = []struct {
 }{
 	{SignatureMismatch, "The signature didn't match", "the signature check failed, either at Holdfast on arrival or inside the app (wrong secret, or the app changed the body before checking it)"},
 	{StaleTimestamp, "The event was too old to trust", "the signature was valid but its timestamp was too old, so it may be a replay"},
-	{PayloadChanged, "The data changed shape", "the app rejected it because a field it needs was renamed, removed or changed type"},
+	{PayloadChanged, "The message arrived in a new layout", "the sender changed the layout of its messages (a field the app needs was renamed, removed or changed type) and the app rejected it"},
 	{AppDown, "The app's server was down", "the app could not be reached or answered with a server error (5xx)"},
 	{AppSlow, "The app took too long to answer", "the app did not answer before the timeout"},
 	{EndpointMoved, "The app's address has changed", "the app answered not found, gone, or a redirect: the destination URL is wrong"},
@@ -174,9 +174,16 @@ func (d Diagnoser) Diagnose(ctx context.Context, f Facts, mode Mode) Diagnosis {
 	}
 	dg := Diagnosis{Cause: c, Title: Title(c), Summary: strings.TrimSpace(out.Summary), Fix: strings.TrimSpace(out.Fix),
 		By: "model", RulesCause: rc}
-	if dg.Summary == "" || len(dg.Summary) > 400 || Jargon(dg.Summary) != "" {
+	switch {
+	case dg.Summary == "" || len(dg.Summary) > 450:
+		dg.Summary = Summary(c, f)
+		dg.Note = "The AI's summary was empty or too long, so a plain one was put in its place."
+	case Jargon(dg.Summary) != "":
 		dg.Summary = Summary(c, f)
 		dg.Note = "The AI's summary used technical words, so a plain one was put in its place."
+	case Promise(dg.Summary) != "":
+		dg.Summary = Summary(c, f)
+		dg.Note = "The AI's summary promised something nobody has done, so a plain one was put in its place."
 	}
 	if dg.Fix == "" {
 		dg.Fix = Fix(c, f)
@@ -184,11 +191,21 @@ func (d Diagnoser) Diagnose(ctx context.Context, f Facts, mode Mode) Diagnosis {
 	return dg
 }
 
-var jargon = regexp.MustCompile(`(?i)\b(http|https|json|hmac|payload|endpoint|status code|api|header|schema|timestamp|5\d\d|4\d\d)\b`)
+// Amounts such as ₹450 are fine; error numbers only count when they read like one.
+var jargon = regexp.MustCompile(`(?i)\b(http|https|json|hmac|payload|endpoint|status code|api|header|schema|timestamp|(error|status|code)\s+[45]\d\d)\b`)
 
 // Jargon returns the first technical word in s, or "".
 func Jargon(s string) string {
 	return jargon.FindString(s)
+}
+
+// Nobody is reviewing, fixing or investigating anything unless a person says so, so the client
+// summary may not claim it.
+var promise = regexp.MustCompile(`(?i)\b(being (reviewed|fixed|looked (at|into)|investigated|resolved|handled|worked on)|(has|have) been (fixed|resolved|identified|reviewed)|will be (fixed|resolved|sent|processed|delivered)|we are|we're|our team|investigat\w*|review(ed|ing)|is resolved)\b`)
+
+// Promise returns the first phrase in s that promises action nobody has taken, or "".
+func Promise(s string) string {
+	return promise.FindString(s)
 }
 
 func app(f Facts) string {
@@ -228,7 +245,7 @@ func Summary(c Cause, f Facts) string {
 	case StaleTimestamp:
 		return "This message was older than it should be, so Holdfast kept it aside in case someone was replaying an old one. Nothing has been lost."
 	case PayloadChanged:
-		return "This message arrived laid out differently from what " + app(f) + " expects, so it couldn't read it." + safe
+		return capital(provider(f)) + " changed the layout of its messages, and " + app(f) + " still expects the old one, so it couldn't read this one." + safe
 	case AppDown:
 		return a + "'s server wasn't answering, so this couldn't be passed on." + safe
 	case AppSlow:
@@ -252,6 +269,11 @@ func Fix(c Cause, f Facts) string {
 	case StaleTimestamp:
 		return "The signature was valid but its timestamp was too old. Check the sender's clock, or whether an old event is being replayed."
 	case PayloadChanged:
+		if rs := Renames(f.Changes); f.ChangesKnown && len(rs) > 0 {
+			r := rs[0]
+			return fmt.Sprintf("%s now sends %s instead of %s, and the app still reads the old field. Read the new one (or accept both), deploy, then resend the held events.",
+				capital(provider(f)), r.To, r.From)
+		}
 		if f.ChangesKnown && len(f.Changes) > 0 {
 			return "These fields changed since the last event the app accepted: " + ChangeList(f.Changes) + ". Update the handler to read the new layout, then resend."
 		}

@@ -75,6 +75,15 @@ JSON schema. Code then checks: cause on the list (else rules), summary free of j
 characters (else the rules' summary for the model's cause), fix not empty. Titles always come from code.
 `RulesOnly` and `ModelOnly` exist for the evaluation (R10.1).
 
+Measured on 2026-10-18 with gemma3:4b: given a raw list of changed paths, Gemma read the renamed field
+backwards ("the app now requires customer_id") and wrote a vague summary that promised a review nobody
+was doing. Fix: code detects renames (`Renames`) and describes every change as a sentence (`Explain`),
+saying the sender changed and the app did not; the prompt now asks for three things in the summary
+(what happened to this message, why, what next) with one example from a different case; and a code
+check (`Promise`) rejects promised actions. The renamed-field diagnosis then named the customer and
+amount, explained the change in everyday words and pointed the developer at `data.object.customer.id`.
+Payment lines now read "₹550 from Dev" after Gemma once wrote "Dev received a ₹550 payment".
+
 The client note is written by code (`TemplateNote`) and may be reworded by the model only if every digit
 sequence in the model's version appears in code's version (R6.2). It is cached per set of held events.
 

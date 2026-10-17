@@ -27,7 +27,7 @@ func EventType(source string, h http.Header, body []byte) string {
 	return top.Event
 }
 
-// What returns a one-line description, e.g. "Payment received · ₹450 · Asha · 2 × Masala chai tin".
+// What returns a one-line description, e.g. "Payment received · ₹450 from Asha · 2 × Masala chai tin".
 func What(source, eventType string, body []byte) string {
 	var doc map[string]any
 	_ = json.Unmarshal(body, &doc)
@@ -78,11 +78,18 @@ func stripe(event string, doc map[string]any) string {
 		label = Humanize(event)
 	}
 	parts := []string{label}
+	amount := ""
 	if amt, ok := dig(obj, "amount").(float64); ok {
-		parts = append(parts, money(amt, str(obj, "currency")))
+		amount = money(amt, str(obj, "currency"))
 	}
-	if name := str(obj, "metadata", "customer_name"); name != "" {
-		parts = append(parts, name)
+	// "₹450 from Asha", so nobody (person or model) reads the customer as the one being paid.
+	switch name := str(obj, "metadata", "customer_name"); {
+	case amount != "" && name != "":
+		parts = append(parts, amount+" from "+name)
+	case amount != "":
+		parts = append(parts, amount)
+	case name != "":
+		parts = append(parts, "from "+name)
 	}
 	if item := str(obj, "metadata", "item"); item != "" {
 		parts = append(parts, item)

@@ -51,6 +51,12 @@ Brief: [../000-brief/brief.md](../000-brief/brief.md)
   the rule-based summary for the model's cause.
 - **R4.5** The system SHALL never show a confidence score.
 - **R4.6** WHEN the server starts, the system SHALL diagnose held events that have no diagnosis.
+- **R4.7** The client summary SHALL say what happened to this message (who and how much, when known), why
+  in everyday words, and what happens next, without naming fields.
+- **R4.8** IF the model's client summary claims anyone is reviewing, fixing or investigating the problem,
+  THEN the system SHALL replace it with the rule-based summary for the model's cause.
+- **R4.9** WHEN a removed field and an added field read the same apart from punctuation and case, the
+  system SHALL report them to the model as one rename, from the old path to the new one.
 
 ## R5 Resending
 
@@ -111,3 +117,5 @@ As in the brief. Also: no accounts, no per-visitor demo isolation, no HTML email
 ## Changelog
 
 - 2026-10-14: First draft, written alongside the build.
+- 2026-10-18: Added R4.7–R4.9 after Tanay found Gemma's summary vague ("being kept safe and reviewed")
+  and its fix backwards (it said the app newly required `customer_id`).
