@@ -55,6 +55,8 @@ Brief: [../000-brief/brief.md](../000-brief/brief.md)
   in everyday words, and what happens next, without naming fields.
 - **R4.8** IF the model's client summary claims anyone is reviewing, fixing or investigating the problem,
   THEN the system SHALL replace it with the rule-based summary for the model's cause.
+- **R4.10** WHILE the model is still writing, the event page SHALL show the rule-based diagnosis marked
+  as a first answer, and replace it when the model's arrives.
 - **R4.9** WHEN a removed field and an added field read the same apart from punctuation and case, the
   system SHALL report them to the model as one rename, from the old path to the new one.
 

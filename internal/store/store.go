@@ -260,9 +260,11 @@ func (s *Store) ByStatus(ctx context.Context, route, status string) ([]Event, er
 	return s.query(ctx, `SELECT `+eventCols+` FROM events WHERE route = ? AND status = ? ORDER BY id`, route, status)
 }
 
-// Undiagnosed returns held events that have no diagnosis yet (for a restart).
+// Undiagnosed returns held events with no final diagnosis yet (for a restart): none at all, or only
+// the rules' placeholder while the model was still writing.
 func (s *Store) Undiagnosed(ctx context.Context) ([]Event, error) {
-	return s.query(ctx, `SELECT `+eventCols+` FROM events WHERE status = ? AND diagnosis = '' ORDER BY id`, Held)
+	return s.query(ctx, `SELECT `+eventCols+` FROM events
+		WHERE status = ? AND (diagnosis = '' OR diagnosis LIKE '%"pending":true%') ORDER BY id`, Held)
 }
 
 // LastDelivered returns the most recent delivered event of the same route and type received before id.

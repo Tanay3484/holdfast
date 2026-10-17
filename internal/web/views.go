@@ -212,7 +212,8 @@ func (s *Server) detail(ctx context.Context, rt relay.Route, ev store.Event) (*e
 	if len(d.Body) > 20000 {
 		d.Body = d.Body[:20000] + "\n…"
 	}
-	d.Final = ev.Status == store.Delivered || ev.Status == store.Duplicate || (ev.Status == store.Held && ev.Diagnosis != "")
+	d.Final = ev.Status == store.Delivered || ev.Status == store.Duplicate ||
+		(ev.Status == store.Held && d.Diagnosis != nil && !d.Diagnosis.Pending)
 	return d, nil
 }
 
