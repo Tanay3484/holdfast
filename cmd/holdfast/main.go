@@ -21,10 +21,13 @@ import (
 	"github.com/Tanay3484/holdfast/internal/config"
 	"github.com/Tanay3484/holdfast/internal/demo"
 	"github.com/Tanay3484/holdfast/internal/diagnose"
+	"github.com/Tanay3484/holdfast/internal/github"
 	"github.com/Tanay3484/holdfast/internal/ollama"
 	"github.com/Tanay3484/holdfast/internal/policy"
 	"github.com/Tanay3484/holdfast/internal/relay"
+	"github.com/Tanay3484/holdfast/internal/session"
 	"github.com/Tanay3484/holdfast/internal/store"
+	"github.com/Tanay3484/holdfast/internal/testapp"
 	"github.com/Tanay3484/holdfast/internal/unlock"
 	"github.com/Tanay3484/holdfast/internal/web"
 )
@@ -68,11 +71,45 @@ func run(log *slog.Logger) error {
 	model := ollama.New(cfg.OllamaURL, cfg.Model, cfg.ModelTimeout, cfg.ModelThreads)
 	rl := relay.New(st, routes, diagnose.Diagnoser{Model: model}, cfg.TimeZone, cfg.Retention, log)
 
+	self := "http://127.0.0.1" + cfg.Addr[strings.LastIndex(cfg.Addr, ":"):]
 	var runner *demo.Runner
 	if shop != nil {
-		runner = demo.NewRunner(shop, st, "http://127.0.0.1"+cfg.Addr[strings.LastIndex(cfg.Addr, ":"):]+"/in/"+demo.RouteName)
+		runner = demo.NewRunner(shop, st, self+"/in/"+demo.RouteName)
 	}
-	site, err := web.New(rl, shop, runner, cfg.AdminToken, cfg.TimeZone, log)
+
+	// Live mode: sessions, GitHub sign-in, and the connections people made before a restart.
+	sessions, err := session.New(cfg.SessionKey)
+	if err != nil {
+		return err
+	}
+	if cfg.SessionKey == "" {
+		log.Warn("HF_SESSION_KEY is not set: sign-ins and stored GitHub tokens last only until restart")
+	}
+	var gh github.API
+	switch {
+	case cfg.GitHubClientID != "" && cfg.GitHubClientSecret != "":
+		gh = github.New(cfg.GitHubClientID, cfg.GitHubClientSecret)
+	case cfg.DevLogin:
+		gh = web.DevGitHub{}
+		log.Warn("HF_DEV_LOGIN is on: sign-in and GitHub are simulated. Never use this on a public server.")
+	}
+	conns, err := st.AllConnections(context.Background())
+	if err != nil {
+		return err
+	}
+	for _, c := range conns {
+		secret, err := sessions.Open(c.Secret)
+		if err != nil {
+			log.Warn("connection secret unreadable (HF_SESSION_KEY changed?)", "connection", c.Name)
+		}
+		rl.SetRoute(web.RouteFor(c, secret, self))
+	}
+
+	site, err := web.New(web.Options{
+		Relay: rl, Shop: shop, Demo: runner, TestApp: testapp.New(), Sessions: sessions, GitHub: gh,
+		DevLogin: cfg.DevLogin, AdminToken: cfg.AdminToken, PublicURL: cfg.PublicURL, SelfURL: self,
+		MaxConnections: cfg.MaxConnections, Loc: cfg.TimeZone, Log: log,
+	})
 	if err != nil {
 		return err
 	}
@@ -81,7 +118,7 @@ func run(log *slog.Logger) error {
 
 	board := unlock.Current()
 	log.Info("holdfast starting", "version", buildinfo.Version, "addr", cfg.Addr, "routes", len(routes),
-		"model", cfg.Model, "unlocked", board.Unlocked, "levels", board.Total)
+		"connections", len(conns), "github", gh != nil, "model", cfg.Model, "unlocked", board.Unlocked, "levels", board.Total)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -91,6 +128,9 @@ func run(log *slog.Logger) error {
 	go func() { errc <- srv.ListenAndServe() }()
 	done := make(chan struct{})
 	go func() { rl.Run(ctx); close(done) }()
+	if runner != nil {
+		go runner.Seed(ctx) // a fresh demo shows a few payments instead of an empty page
+	}
 
 	select {
 	case err := <-errc:

@@ -1,6 +1,6 @@
 {{define "content"}}{{with .Event}}
 <div class="wrap narrow">
-  <nav class="crumbs"><a href="{{if .Public}}/#demo{{else}}/r/{{.Route}}{{end}}">← Back to {{.Client}}</a></nav>
+  <nav class="crumbs"><a href="{{if .Public}}/demo{{else}}/r/{{.Route}}{{end}}">← Back to {{.Client}}</a></nav>
   <div id="event"{{if not .Final}} data-poll="/fragments/event/{{.ID}}"{{end}}>{{template "event-live" $}}</div>
 </div>
 {{end}}{{end}}
@@ -41,38 +41,38 @@
 <div class="panels">
   <section class="panel">
     <h3>Is it really from {{.Provider}}?</h3>
-    {{if unlocked "signature"}}<p class="sig sig--{{.SignatureTone}}">{{.SignatureText}}</p>{{else}}{{template "wip" (level "signature")}}{{end}}
+    <p class="sig sig--{{.SignatureTone}}">{{.SignatureText}}</p>
   </section>
 
   <section class="panel">
     <h3>What happened on each try</h3>
-    {{if unlocked "retries"}}
+    
     <ol class="tries">
       {{range .History}}<li class="try try--{{.Tone}}"><time>{{clock .At}}</time><strong>Try {{.N}} · {{.Answer}}</strong><span>{{.Reason}}</span></li>
       {{else}}<li class="muted">Not tried yet.</li>{{end}}
     </ol>
-    {{else}}{{template "wip" (level "retries")}}{{end}}
+    
   </section>
 
   <section class="panel">
     <h3>What changed since the last one that worked</h3>
-    {{if unlocked "changes"}}
+    
       {{if .ChangesKnown}}
         {{if .Changes}}
         <ul class="changes">{{range .Changes}}<li><code class="chg chg--{{.Kind}}">{{path .Path}}</code> {{.Kind}}{{if .Was}}{{if .Now}}: {{.Was}} → {{.Now}}{{end}}{{end}}</li>{{end}}</ul>
         {{else}}<p>Nothing. It has the same layout as the last one {{.Client}} accepted.</p>{{end}}
       {{else}}<p class="muted">There's no earlier message of this kind that worked, so there's nothing to compare with yet.</p>{{end}}
-    {{else}}{{template "wip" (level "changes")}}{{end}}
+    
   </section>
 
   <section class="panel">
     <h3>Send it again</h3>
-    {{if unlocked "resend"}}
+    
       {{if eq .Status "held"}}
       <form method="post" action="/events/{{.ID}}/resend" data-async><button class="btn btn--primary" type="submit">Send it again</button></form>
       <p class="muted">Holdfast first checks it is genuine and hasn't already been delivered.</p>
       {{else}}<p class="muted">Only held messages can be sent again.</p>{{end}}
-    {{else}}{{template "wip" (level "resend")}}{{end}}
+    
   </section>
 </div>
 

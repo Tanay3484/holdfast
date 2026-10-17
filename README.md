@@ -39,22 +39,29 @@ go test ./...
 Settings are environment variables; see [.env.example](.env.example). Without Ollama everything still works
 and diagnoses come from the built-in rules.
 
-## The unlock game
+## Two modes
 
-The four core pieces are written by hand ([tasks H1–H4](specs/001-holdfast-mvp/tasks.md)). Until each one
-is written, the parts of the site it powers show a "WIP" tile naming the file to open:
+- **Demo** (`/demo`): Chai & Co., a pretend tea shop with made-up customers. Break it seven ways and watch
+  the real relay, retries, checks and Gemma's explanations.
+- **Live** (`/live`): sign in with GitHub, pick a repository, and Holdfast adds itself as the webhook.
+  Deliver to your own app or to the built-in test app, which you can switch to failing on purpose. Stripe
+  connects by hand (one-click Stripe sign-in needs a Stripe platform account this project doesn't have).
 
-| Level | File | Reveals |
-|-------|------|---------|
-| 1 · Signature check | `internal/verify/verify.go` | "Is it really from Stripe?", held forgeries |
-| 2 · Smart retries | `internal/policy/policy.go` | Attempt history, outages that recover by themselves |
-| 3 · What changed | `internal/shape/shape.go` | "What changed since the last one that worked" |
-| 4 · Safe resend | `internal/replay/replay.go` | Resend buttons, duplicates stopped |
+To try Live mode locally without a GitHub OAuth app: `HF_DEV_LOGIN=true go run ./cmd/holdfast`. GitHub is
+then simulated and no real webhooks are added.
+
+## How it was built: the unlock game
+
+The four core pieces (signature checks, retry policy, shape diff, resend plan) started as stubs, each a
+"level" with known-answer checks in `internal/unlock`. `go run ./cmd/unlock` shows the board; while a level
+was locked, the parts of the site it powers showed a "WIP" tile. All four are now unlocked.
 
 ## Deploy
 
-`render.yaml` is a Render Blueprint: the web service with a 1 GB disk, and a private Ollama service with
-gemma3:1b baked in. Real routes go in `HF_ROUTES` in the dashboard, never in the repo.
+`render.yaml` is a Render Blueprint: the web service with a 1 GB disk, and a private Ollama service
+(`2c-4g`) with gemma3:4b baked in. For Live mode, create a GitHub OAuth app with the callback URL
+`https://<your service>.onrender.com/auth/github/callback` and set `HF_GITHUB_CLIENT_ID` and
+`HF_GITHUB_CLIENT_SECRET` in the dashboard. `HF_SESSION_KEY` is generated.
 
 ## How this repo is built
 

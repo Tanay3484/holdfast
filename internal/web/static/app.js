@@ -50,12 +50,15 @@
     const form = e.target;
     if (!form.matches("form[data-async]")) return;
     e.preventDefault();
+    if (form.dataset.confirm && !window.confirm(form.dataset.confirm)) return;
     const btn = form.querySelector("button");
     if (btn) btn.disabled = true;
     try {
-      const res = await fetch(form.action, { method: "POST", headers: { Accept: "application/json" } });
+      const res = await fetch(form.action, { method: "POST", headers: { Accept: "application/json" }, body: new FormData(form) });
       const data = await res.json().catch(() => ({}));
       toast(data.message || (res.ok ? "Done." : "That didn't work."), !res.ok);
+      if (res.ok && "follow" in form.dataset && data.redirect) { setTimeout(() => { location.href = data.redirect; }, 900); return; }
+      if (res.ok && form.querySelector("input[name=secret]")) { setTimeout(() => location.reload(), 700); }
       setTimeout(refreshAll, 300);
       setTimeout(refreshAll, 1200);
     } catch (_) {

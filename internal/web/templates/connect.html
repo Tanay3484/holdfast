@@ -1,0 +1,65 @@
+{{define "content"}}{{$c := .Connect}}
+<section class="connect">
+  <div class="wrap narrow">
+    <nav class="crumbs"><a href="/live">← Your connections</a></nav>
+    <h1>New connection</h1>
+    <p class="lede">Where do the webhooks come from?</p>
+
+    <div class="tabs" role="tablist">
+      <a class="tab{{if eq $c.Kind "github"}} is-on{{end}}" href="/live/new?kind=github" role="tab">{{template "gh"}} GitHub</a>
+      <a class="tab{{if eq $c.Kind "stripe"}} is-on{{end}}" href="/live/new?kind=stripe" role="tab">Stripe</a>
+      <a class="tab{{if eq $c.Kind "generic"}} is-on{{end}}" href="/live/new?kind=generic" role="tab">Something else</a>
+    </div>
+
+    {{with $c.Error}}<p class="form-error" role="alert">{{.}}</p>{{end}}
+
+    <form class="form-card" method="post" action="/live/connections">
+      <input type="hidden" name="kind" value="{{$c.Kind}}">
+
+      {{if eq $c.Kind "github"}}
+        <div class="field">
+          <label for="repo">Repository</label>
+          {{if $c.RepoError}}<p class="form-error">{{$c.RepoError}}</p>
+          {{else if $c.Repos}}
+            <select id="repo" name="repo" required>
+              {{range $c.Repos}}<option value="{{.FullName}}"{{if eq .FullName (index $c.Form "repo")}} selected{{end}}>{{.FullName}}{{if .Private}} (private){{end}}</option>{{end}}
+            </select>
+            <p class="hint">Holdfast adds one webhook to this repository, for pushes, pull requests, issues, releases and stars. Disconnecting removes it again.</p>
+          {{else}}<p class="form-error">No repositories you administer were found on your GitHub account.</p>{{end}}
+        </div>
+      {{else if eq $c.Kind "stripe"}}
+        <div class="field">
+          <label for="label">Name</label>
+          <input id="label" name="label" placeholder="e.g. Chai & Co. payments" value="{{index $c.Form "label"}}" maxlength="60">
+        </div>
+        <div class="field">
+          <label for="secret">Stripe signing secret <span class="opt">optional now</span></label>
+          <input id="secret" name="secret" placeholder="whsec_…" value="{{index $c.Form "secret"}}" autocomplete="off" spellcheck="false">
+          <p class="hint">You'll get the address to paste into Stripe on the next page. Stripe then shows the signing secret; you can add it there.</p>
+        </div>
+      {{else}}
+        <div class="field">
+          <label for="label">Name</label>
+          <input id="label" name="label" placeholder="e.g. Shopify orders" value="{{index $c.Form "label"}}" maxlength="60">
+          <p class="hint">Any service that sends webhooks. Holdfast stores and forwards them; there's no signature to check.</p>
+        </div>
+      {{end}}
+
+      <fieldset class="field">
+        <legend>Where should Holdfast send them?</legend>
+        <label class="choice">
+          <input type="radio" name="target" value="test"{{if ne (index $c.Form "target") "own"}} checked{{end}}>
+          <span><strong>Holdfast's test app</strong><small>No app needed. You can switch it to failing on purpose and watch Holdfast catch the messages.</small></span>
+        </label>
+        <label class="choice">
+          <input type="radio" name="target" value="own"{{if eq (index $c.Form "target") "own"}} checked{{end}}>
+          <span><strong>My own app</strong><small>The address your app receives webhooks on.</small></span>
+        </label>
+        <input class="choice__url" name="destination" type="url" placeholder="https://your-app.example.com/webhooks" value="{{index $c.Form "destination"}}">
+      </fieldset>
+
+      <button class="btn btn--primary btn--big" type="submit">{{if eq $c.Kind "github"}}Connect repository{{else}}Create connection{{end}}</button>
+    </form>
+  </div>
+</section>
+{{end}}

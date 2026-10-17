@@ -121,6 +121,28 @@ CREATE TABLE IF NOT EXISTS attempts(
 	reason      TEXT    NOT NULL
 );
 CREATE INDEX IF NOT EXISTS attempts_event ON attempts(event_id, id);
+CREATE TABLE IF NOT EXISTS users(
+	id         INTEGER PRIMARY KEY AUTOINCREMENT,
+	github_id  INTEGER NOT NULL UNIQUE,
+	login      TEXT    NOT NULL,
+	name       TEXT    NOT NULL DEFAULT '',
+	avatar     TEXT    NOT NULL DEFAULT '',
+	token      TEXT    NOT NULL DEFAULT '',
+	created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS connections(
+	name        TEXT    PRIMARY KEY,
+	user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+	source      TEXT    NOT NULL,
+	label       TEXT    NOT NULL,
+	secret      TEXT    NOT NULL DEFAULT '',
+	destination TEXT    NOT NULL DEFAULT '',
+	test_app    INTEGER NOT NULL DEFAULT 0,
+	repo        TEXT    NOT NULL DEFAULT '',
+	hook_id     INTEGER NOT NULL DEFAULT 0,
+	created_at  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS connections_user ON connections(user_id, created_at);
 `
 
 // Open opens (and creates) the database at path. Use ":memory:" in tests.

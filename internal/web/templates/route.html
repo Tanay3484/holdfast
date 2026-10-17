@@ -1,12 +1,76 @@
 {{define "content"}}{{with .Board}}
 <section class="route">
-  <div class="wrap narrow">
-    <div class="section-head">
-      <p class="eyebrow">Connection · {{.Route}}</p>
-      <h1>{{.Client}}</h1>
-      <p>Providers send to <code>/in/{{.Route}}</code>. Everything that arrives is listed here.</p>
+  <div class="wrap">
+    <nav class="crumbs"><a href="/live">← Your connections</a></nav>
+    <div class="route__head">
+      <div>
+        {{with $.Conn}}{{template "source-badge" .Source}}{{end}}
+        <h1>{{.Client}}</h1>
+        {{with $.Conn}}<p class="route__sub">→ {{.Where}}</p>{{else}}<p class="route__sub">Providers send to <code>/in/{{.Route}}</code></p>{{end}}
+      </div>
     </div>
-    <div class="dash" id="board" data-poll="/fragments/board/{{.Route}}">{{template "board" $}}</div>
+
+    {{with $.Conn}}{{if .ShowWelcome}}
+    <div class="welcome" role="status">
+      {{if eq .Source "github"}}<strong>Connected to {{.Repo}}.</strong> GitHub's test ping lands below in a few seconds. Then push a commit.
+      {{else if eq .Source "stripe"}}<strong>Created.</strong> Three quick steps on the right connect Stripe.
+      {{else}}<strong>Created.</strong> Point your service at the address on the right, or send a sample.{{end}}
+    </div>
+    {{end}}{{end}}
+
+    <div class="route__grid">
+      <div class="dash" id="board" data-poll="/fragments/board/{{.Route}}">{{template "board" $}}</div>
+
+      {{with $.Conn}}
+      <aside class="route__side">
+        {{if eq .Source "stripe"}}
+        <div class="side-card{{if .NeedSecret}} side-card--todo{{end}}">
+          <h3>Connect Stripe</h3>
+          <ol class="numbered numbered--small">
+            <li>Stripe → <strong>Developers → Webhooks → Add endpoint</strong></li>
+            <li>Paste this address:
+              <span class="copyline"><code id="in-url">{{.InURL}}</code><button class="link" type="button" data-copy="#in-url">Copy</button></span></li>
+            <li>Paste Stripe's signing secret here:
+              <form method="post" action="/r/{{.Name}}/secret" data-async class="inline-form">
+                <input name="secret" placeholder="whsec_…" autocomplete="off" spellcheck="false" aria-label="Stripe signing secret">
+                <button class="btn btn--small" type="submit">Save</button>
+              </form>
+              {{if .NeedSecret}}<span class="todo">Signatures aren't checked until you add it.</span>{{else}}<span class="done">{{template "check"}} Signatures checked</span>{{end}}
+            </li>
+          </ol>
+        </div>
+        {{else}}
+        <div class="side-card">
+          <h3>Webhook address</h3>
+          <span class="copyline"><code id="in-url">{{.InURL}}</code><button class="link" type="button" data-copy="#in-url">Copy</button></span>
+          {{if eq .Source "github"}}<p class="fine">{{template "check"}} Added to {{.Repo}} for you.</p>{{end}}
+        </div>
+        {{end}}
+
+        {{if .TestApp}}
+        <div class="side-card">
+          <h3>Test app</h3>
+          <div class="modepick">
+            {{range .Modes}}
+            <form method="post" action="/r/{{$.Conn.Name}}/test-app/{{.Mode}}" data-async>
+              <button class="modepick__btn{{if .On}} is-on{{end}}" type="submit" title="{{.Hint}}"><span class="modepick__dot modepick__dot--{{.Mode}}"></span>{{.Label}}</button>
+            </form>
+            {{end}}
+          </div>
+          <p class="fine">Make it misbehave, then {{if eq .Source "github"}}push a commit{{else}}send a sample{{end}}.</p>
+        </div>
+        {{end}}
+
+        {{if ne .Source "github"}}
+        <form method="post" action="/r/{{.Name}}/sample" data-async class="side-action"><button class="btn btn--wide" type="submit">Send a sample {{if eq .Source "stripe"}}payment{{else}}event{{end}}</button></form>
+        {{end}}
+
+        <form method="post" action="/r/{{.Name}}/delete" data-async data-follow class="side-action" data-confirm="Disconnect {{.Label}}? Its messages here are deleted{{if eq .Source "github"}} and the webhook is removed from GitHub{{end}}.">
+          <button class="link link--danger" type="submit">Disconnect</button>
+        </form>
+      </aside>
+      {{end}}
+    </div>
   </div>
 </section>
 {{end}}{{end}}

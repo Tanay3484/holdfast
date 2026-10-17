@@ -35,8 +35,17 @@ services:
         value: Asia/Kolkata
       - key: HF_ADMIN_TOKEN
         generateValue: true
-      # JSON list of real routes, set in the dashboard so secrets never enter the repo.
+      # JSON list of fixed routes for the admin, set in the dashboard so secrets never enter the repo.
       - key: HF_ROUTES
+        sync: false
+      # Live mode. Signs the sign-in cookie and encrypts stored GitHub tokens and webhook secrets.
+      - key: HF_SESSION_KEY
+        generateValue: true
+      # From the GitHub OAuth app (github.com/settings/developers). Callback URL:
+      # https://<this service>.onrender.com/auth/github/callback. Leave empty to keep Live sign-in off.
+      - key: HF_GITHUB_CLIENT_ID
+        sync: false
+      - key: HF_GITHUB_CLIENT_SECRET
         sync: false
       - key: HF_OLLAMA_URL
         fromService:

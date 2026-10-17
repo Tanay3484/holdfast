@@ -14,7 +14,15 @@ for `specs/001-holdfast-mvp/` were drafted and every `@ai` setup task (T1–T13)
 of approval. Those three files are `Status: Draft` and need Tanay's review. Open: the four `@human` levels
 (H1–H4) and the evidence and launch tasks (T14–T21).
 
-## The unlock game
+## Demo and Live (2026-10-18)
+
+The public site has two modes: Demo (`/demo`, Chai & Co., made-up data) and Live (`/live`, GitHub sign-in,
+real webhooks, test app, Stripe by hand). Spec: `specs/002-demo-and-live/requirements.md`. Tanay has no
+Stripe account, so Stripe sign-in is not built and the site and post say so. For local Live testing use
+`HF_DEV_LOGIN=true` (simulated GitHub). Headless Edge won't screenshot signed-in pages with a reused
+profile; save the page with curl, add `<base href>`, and screenshot the file instead.
+
+## The unlock game (finished)
 
 The four `@human` packages (`verify`, `policy`, `shape`, `replay`) start as stubs returning
 `wip.ErrLocked`. `internal/unlock/levels.go` holds known-answer checks for each; a level is locked,
