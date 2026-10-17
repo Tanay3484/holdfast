@@ -17,10 +17,13 @@
 package replay
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"slices"
 	"time"
-
-	"github.com/Tanay3484/holdfast/internal/wip"
 )
 
 // DedupeKey returns a key that is the same for every copy of one provider event.
@@ -34,7 +37,21 @@ import (
 //
 // Until this is written the relay forwards every copy it receives.
 func DedupeKey(source string, headers http.Header, body []byte) (string, error) {
-	return "", wip.Locked("replay.DedupeKey") // TODO(@human, H4): replace this line
+	switch source {
+	case "github":
+		if id := headers.Get("X-GitHub-Delivery"); id != "" {
+			return "github:" + id, nil
+		}
+	case "stripe":
+		var ev struct {
+			ID string `json:"id"`
+		}
+		if json.Unmarshal(body, &ev) == nil && ev.ID != "" {
+			return "stripe:" + ev.ID, nil
+		}
+	}
+	sum := sha256.Sum256(body)
+	return "sha256:" + hex.EncodeToString(sum[:]), nil
 }
 
 // Held is one event waiting to be resent.
@@ -65,5 +82,33 @@ type Step struct {
 //
 // An empty input returns an empty (non-nil or nil, either is fine) slice and no error.
 func Plan(held []Held, delivered map[string]bool) ([]Step, error) {
-	return nil, wip.Locked("replay.Plan") // TODO(@human, H4): replace this line
+	// Work on a copy so the caller's slice keeps its order.
+	ordered := slices.Clone(held)
+	slices.SortStableFunc(ordered, func(a, b Held) int {
+		if c := a.ReceivedAt.Compare(b.ReceivedAt); c != 0 {
+			return c
+		}
+		return int(a.ID - b.ID)
+	})
+
+	steps := make([]Step, 0, len(ordered))
+	firstWith := map[string]int64{} // dedupe key → the event that will carry it
+	for _, h := range ordered {
+		step := Step{ID: h.ID}
+		switch first, seen := firstWith[h.DedupeKey]; {
+		case h.SignatureFailed:
+			step.Reason = "the signature did not match, so it may not be from the provider"
+		case h.DedupeKey != "" && delivered[h.DedupeKey]:
+			step.Reason = "this was already delivered"
+		case h.DedupeKey != "" && seen:
+			step.Reason = fmt.Sprintf("a copy of event #%d", first)
+		default:
+			step.Send = true
+			if h.DedupeKey != "" {
+				firstWith[h.DedupeKey] = h.ID
+			}
+		}
+		steps = append(steps, step)
+	}
+	return steps, nil
 }
