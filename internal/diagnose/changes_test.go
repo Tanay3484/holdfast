@@ -1,7 +1,9 @@
 package diagnose
 
 import (
+	"context"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/Tanay3484/holdfast/internal/shape"
@@ -51,5 +53,23 @@ func TestPlainWordChecks(t *testing.T) {
 	}
 	if Jargon("The server returned error 503.") == "" {
 		t.Error("an error number should count as jargon")
+	}
+}
+
+func TestModelFixMustNameTheRenamedField(t *testing.T) {
+	f := Facts{LastStatus: 400, ChangesKnown: true, Changes: []shape.Change{
+		{Path: "$.data.customer.id", Kind: shape.Added, Now: shape.String},
+		{Path: "$.data.customer_id", Kind: shape.Removed, Was: shape.String},
+	}}
+	vague := &fakeModel{reply: `{"cause":"payload_changed","summary":"Asha's payment couldn't be read.","fix":"Ensure the sender updates the id field."}`}
+	if d := (Diagnoser{Model: vague}).Diagnose(context.Background(), f, Combined); !strings.Contains(d.Fix, "data.customer.id") {
+		t.Fatalf("a fix that misses the rename must be replaced: %q", d.Fix)
+	}
+	good := &fakeModel{reply: `{"cause":"payload_changed","summary":"Asha's payment couldn't be read.","fix":"Read data.customer.id instead of customer_id."}`}
+	if d := (Diagnoser{Model: good}).Diagnose(context.Background(), f, Combined); d.Fix != "Read data.customer.id instead of customer_id." {
+		t.Fatalf("a good fix was replaced: %q", d.Fix)
+	}
+	if Promise("The app will resend the held events.") == "" {
+		t.Fatal(`"will resend" is a promise`)
 	}
 }

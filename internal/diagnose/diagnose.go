@@ -185,10 +185,23 @@ func (d Diagnoser) Diagnose(ctx context.Context, f Facts, mode Mode) Diagnosis {
 		dg.Summary = Summary(c, f)
 		dg.Note = "The AI's summary promised something nobody has done, so a plain one was put in its place."
 	}
-	if dg.Fix == "" {
+	if dg.Fix == "" || !namesRenamedField(dg.Fix, f) {
 		dg.Fix = Fix(c, f)
 	}
 	return dg
+}
+
+// namesRenamedField is true unless code found a rename and the model's fix does not mention where
+// the field moved to: a fix that misses the one fact that matters is worse than the rules' fix.
+func namesRenamedField(fix string, f Facts) bool {
+	rs := Renames(f.Changes)
+	if !f.ChangesKnown || len(rs) == 0 {
+		return true
+	}
+	// Accept the full path or its last two segments ("customer.id"); one segment ("id") proves nothing.
+	segs := strings.Split(rs[0].To, ".")
+	short := strings.Join(segs[max(0, len(segs)-2):], ".")
+	return strings.Contains(fix, rs[0].To) || strings.Contains(fix, short)
 }
 
 // Amounts such as ₹450 are fine; error numbers only count when they read like one.
@@ -201,7 +214,7 @@ func Jargon(s string) string {
 
 // Nobody is reviewing, fixing or investigating anything unless a person says so, so the client
 // summary may not claim it.
-var promise = regexp.MustCompile(`(?i)\b(being (reviewed|fixed|looked (at|into)|investigated|resolved|handled|worked on)|(has|have) been (fixed|resolved|identified|reviewed)|will be (fixed|resolved|sent|processed|delivered)|we are|we're|our team|investigat\w*|review(ed|ing)|is resolved)\b`)
+var promise = regexp.MustCompile(`(?i)\b(being (reviewed|fixed|looked (at|into)|investigated|resolved|handled|worked on)|(has|have) been (fixed|resolved|identified|reviewed)|will be (fixed|resolved|sent|processed|delivered)|will (re-?send|resend|retry|fix|deliver|send it)|we are|we're|our team|investigat\w*|review(ed|ing)|is resolved)\b`)
 
 // Promise returns the first phrase in s that promises action nobody has taken, or "".
 func Promise(s string) string {
