@@ -39,7 +39,8 @@ site change. Any order works; this order unlocks the demo in the most satisfying
   - Done when: 7/7, and "The payment service renames a field" shows `customer_id removed` and is
     diagnosed as "The data changed shape".
 
-- [ ] **H4 · Safe resend** — `internal/replay/replay.go` · @human · R1.7, R5.1–R5.3 · ~1.5 h
+- [x] **H4 · Safe resend** — `internal/replay/replay.go` · @human · R1.7, R5.1–R5.3 · ~1.5 h
+  - 2026-10-18: written by the AI at Tanay's request (late night before the deadline), with tests.
   - In: source, headers, body; held events and delivered keys. Out: key; one step per held event.
   - Edge cases: Stripe body that is not JSON; empty key; duplicate of an already-delivered key; equal
     ReceivedAt (tie-break on ID); do not sort the caller's slice in place.
