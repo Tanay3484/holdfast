@@ -26,7 +26,9 @@ site change. Any order works; this order unlocks the demo in the most satisfying
     when attempt is large (cap before you multiply).
   - Done when: 12/12, and "The shop goes down for a few seconds" is delivered on a later try.
 
-- [ ] **H3 · What changed** — `internal/shape/shape.go` · @human · R3.1 · ~2.5 h
+- [x] **H3 · What changed** — `internal/shape/shape.go` · @human · R3.1 · ~2.5 h
+  - 2026-10-18: written by the AI at Tanay's request, as a worked example of recursion (Tanay wrote the
+    JSON decoding and started `walk`). H1, H2 and H4 stay Tanay's.
   - In: a JSON body; two shapes. Out: path → kind map; sorted changes.
   - Edge cases: empty array; arrays of arrays (`$.a[][]`); items that disagree (Mixed); null; top-level
     array; invalid JSON; keys containing dots (leave as they are).
