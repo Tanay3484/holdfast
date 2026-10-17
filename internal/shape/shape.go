@@ -1,7 +1,7 @@
 // Package shape describes the structure of a JSON payload and what changed between two of them.
 //
 //	╔══════════════════════════════════════════════════════════════════════╗
-//	║  LEVEL 3 · WHAT CHANGED                                 owner: @human ║
+//	║  LEVEL 3 · WHAT CHANGED                                 owner: @human║
 //	║                                                                      ║
 //	║  Write Of and Diff below. Unlocks:                                   ║
 //	║   • the "What changed since the last one that worked" panel          ║
@@ -17,9 +17,9 @@
 package shape
 
 import (
+	"encoding/json"
 	"errors"
-
-	"github.com/Tanay3484/holdfast/internal/wip"
+	"sort"
 )
 
 // Kind is the JSON type at one path.
@@ -59,7 +59,49 @@ var ErrNotJSON = errors.New("body is not valid JSON")
 // Return ErrNotJSON (wrapped is fine) for anything that does not parse.
 // Hint: json.Unmarshal into `any` gives you map[string]any, []any, string, float64, bool and nil.
 func Of(body []byte) (Shape, error) {
-	return nil, wip.Locked("shape.Of") // TODO(@human, H3): replace this line
+	var doc any
+	if err := json.Unmarshal(body, &doc); err != nil {
+		return nil, ErrNotJSON
+	}
+
+	s := Shape{}
+	walk(s, "$", doc) // start at the outside; walk works its way in
+	return s, nil
+}
+
+// walk records the kind of v at path, then does the same for everything inside v.
+// It is the folder-listing idea: write down what this thing is, and if it contains
+// other things, call walk again for each of them with a longer path.
+func walk(s Shape, path string, v any) {
+	switch v := v.(type) {
+	case map[string]any: // an object: record it, then visit every key
+		record(s, path, Object)
+		for key, inner := range v {
+			walk(s, path+"."+key, inner)
+		}
+	case []any: // an array: record it, then visit every item; all items share path+"[]"
+		record(s, path, Array)
+		for _, item := range v {
+			walk(s, path+"[]", item)
+		}
+	case string: // the four plain kinds hold nothing inside, so just record and stop
+		record(s, path, String)
+	case float64:
+		record(s, path, Number)
+	case bool:
+		record(s, path, Bool)
+	case nil:
+		record(s, path, Null)
+	}
+}
+
+// record writes one entry. Array items share a path, so if a different kind is already
+// there, the items disagree and the path becomes Mixed.
+func record(s Shape, path string, k Kind) {
+	if old, seen := s[path]; seen && old != k {
+		k = Mixed
+	}
+	s[path] = k
 }
 
 // ChangeKind says how one path differs.
@@ -89,5 +131,24 @@ type Change struct {
 //	{"$.data.customer.id", Added, "", string}
 //	{"$.data.customer_id", Removed, string, ""}
 func Diff(good, bad Shape) ([]Change, error) {
-	return nil, wip.Locked("shape.Diff") // TODO(@human, H3): replace this line
+	var changes []Change
+	// Everything the good one had: is it gone, or a different kind now?
+	for path, was := range good {
+		now, still := bad[path]
+		switch {
+		case !still:
+			changes = append(changes, Change{Path: path, Kind: Removed, Was: was})
+		case now != was:
+			changes = append(changes, Change{Path: path, Kind: Retyped, Was: was, Now: now})
+		}
+	}
+	// Everything the bad one has that the good one never had.
+	for path, now := range bad {
+		if _, had := good[path]; !had {
+			changes = append(changes, Change{Path: path, Kind: Added, Now: now})
+		}
+	}
+	// Map order is random in Go, so sort to give the same answer every time.
+	sort.Slice(changes, func(i, j int) bool { return changes[i].Path < changes[j].Path })
+	return changes, nil
 }
