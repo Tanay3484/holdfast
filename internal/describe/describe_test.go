@@ -11,7 +11,7 @@ func TestWhat(t *testing.T) {
 	}{
 		{"stripe", "payment_intent.succeeded",
 			`{"data":{"object":{"amount":45000,"currency":"inr","metadata":{"customer_name":"Asha","item":"2 × Masala chai tin"}}}}`,
-			"Payment received · ₹450 · Asha · 2 × Masala chai tin"},
+			"Payment received · ₹450 from Asha · 2 × Masala chai tin"},
 		{"stripe", "charge.refunded", `{"data":{"object":{"amount":1999,"currency":"usd"}}}`, "Refund issued · $19.99"},
 		{"stripe", "invoice.upcoming", `{}`, "Invoice upcoming"},
 		{"github", "push", `{"repository":{"full_name":"tanay/holdfast"}}`, "Code pushed · tanay/holdfast"},

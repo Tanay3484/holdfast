@@ -11,11 +11,22 @@ const system = `You explain why a webhook delivery failed. Code has collected th
 
 Pick the single most likely cause from this list:
 %s
-Then write:
-- "summary": for the business owner, who is not technical. At most two short sentences. Say what happened and that the message is kept safe. Do not say the problem is fixed, being fixed or already identified, and do not promise anything. Never use these words: HTTP, JSON, HMAC, payload, endpoint, status code, API, header, schema, timestamp, or any three-digit error number.
-- "fix": for their developer. One or two concrete sentences, naming the field or setting involved if the facts show it.
+Then write two things.
 
-Never give a percentage, a confidence score, or a number that is not in the facts.`
+"summary" is read by the business owner, who is not technical. Write two or three plain sentences:
+1. What happened to this specific message: name the customer and amount from the Event line if there are any.
+2. Why, in everyday words. If the facts say a field was renamed, say the sender changed how it lays out its messages and the owner's system still expects the old layout. Do not name fields here; the fix does that.
+3. What happens next: it is kept safe, and it can be sent again once their developer has made the change.
+Never use these words: HTTP, JSON, HMAC, payload, endpoint, status code, API, header, schema, timestamp, or an error number.
+Do not say anyone is reviewing, fixing or investigating it, and do not promise anything.
+
+"fix" is read by their developer. One or two concrete sentences: say which side changed (the sender or the app), name the exact fields or settings from the facts, and say what to change. Then: resend the held events.
+
+Never give a percentage, a confidence score, or a number that is not in the facts.
+
+Example, for a different case:
+Facts: Event: Order paid · ₹1200 from Ravi. The app belongs to: Bloom Florists. Last attempt: the app answered HTTP 503 on all 5 tries.
+{"cause":"app_down","summary":"Ravi's ₹1200 order payment couldn't reach Bloom Florists because their system wasn't answering at the time. Holdfast is keeping it safe, and it can be sent again once the system is back up.","fix":"The app answered 503 Service Unavailable on all 5 tries. Check that it is running and healthy, then resend the held events."}`
 
 func prompt(f Facts, mode Mode, rulesCause Cause) []ollama.Message {
 	var list strings.Builder
@@ -53,9 +64,9 @@ func factsText(f Facts, mode Mode, rulesCause Cause) string {
 	case len(f.Changes) == 0:
 		b.WriteString("Field comparison with the last accepted event of this type: no differences.\n")
 	default:
-		b.WriteString("Fields that differ from the last accepted event of this type:\n")
-		for _, c := range f.Changes {
-			fmt.Fprintf(&b, "- %s: %s (was %q, now %q)\n", c.Path, c.Kind, c.Was, c.Now)
+		b.WriteString("Compared with the last event of this type that the app accepted, the sender changed its message (the app did not change):\n")
+		for _, line := range Explain(f.Changes) {
+			fmt.Fprintf(&b, "- %s\n", line)
 		}
 	}
 	if mode == Combined {
