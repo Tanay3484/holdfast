@@ -22,7 +22,9 @@ site change. Any order works; this order unlocks the demo in the most satisfying
   - Done when: level 1 shows 10/10, and the "Signed with the wrong key" demo is held instead of delivered.
   - Hints: `crypto/hmac`, `crypto/sha256`, `encoding/hex`, `hmac.Equal`, `strings.Split`, `strconv.ParseInt`.
 
-- [ ] **H2 · Smart retries** — `internal/policy/policy.go` · @human · R2.2 · ~1 h
+- [x] **H2 · Smart retries** — `internal/policy/policy.go` · @human · R2.2 · ~1 h
+  - 2026-10-18: written by Tanay (all 12 checks passed). At Tanay's request the AI polished it ("the app"
+    instead of "the shop", one cap check, readable waits) and added `policy_test.go`.
   - In: attempt number (1-based), outcome. Out: Delivered, Retry with a wait, or Hold, and a plain reason.
   - Edge cases: attempt equal to MaxAttempts; Retry-After larger than MaxDelay; 3xx; 408/429; overflow
     when attempt is large (cap before you multiply).
