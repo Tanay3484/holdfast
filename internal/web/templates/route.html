@@ -1,12 +1,87 @@
 {{define "content"}}{{with .Board}}
 <section class="route">
-  <div class="wrap narrow">
-    <div class="section-head">
-      <p class="eyebrow">Connection · {{.Route}}</p>
-      <h1>{{.Client}}</h1>
-      <p>Providers send to <code>/in/{{.Route}}</code>. Everything that arrives is listed here.</p>
+  <div class="wrap">
+    <nav class="crumbs"><a href="/live">← Your connections</a></nav>
+    <div class="route__head">
+      <div>
+        {{with $.Conn}}{{template "source-badge" .Source}}{{end}}
+        <h1>{{.Client}}</h1>
+        {{with $.Conn}}<p class="route__sub">Delivering to {{.Where}}</p>{{else}}<p class="route__sub">Providers send to <code>/in/{{.Route}}</code>.</p>{{end}}
+      </div>
     </div>
-    <div class="dash" id="board" data-poll="/fragments/board/{{.Route}}">{{template "board" $}}</div>
+
+    {{with $.Conn}}{{if .ShowWelcome}}
+    <div class="welcome" role="status">
+      {{if eq .Source "github"}}
+        <strong>Connected.</strong> Holdfast added a webhook to {{.Repo}}. GitHub sends a test ping right away; it should appear below within a few seconds. Push a commit to see a real event.
+      {{else if eq .Source "stripe"}}
+        <strong>Created.</strong> Now tell Stripe where to send: follow the three steps on the right.
+      {{else}}
+        <strong>Created.</strong> Point your service at the address on the right, or send a sample event to try it.
+      {{end}}
+    </div>
+    {{end}}{{end}}
+
+    <div class="route__grid">
+      <div class="dash" id="board" data-poll="/fragments/board/{{.Route}}">{{template "board" $}}</div>
+
+      {{with $.Conn}}
+      <aside class="route__side">
+        {{if eq .Source "stripe"}}
+        <div class="side-card{{if .NeedSecret}} side-card--todo{{end}}">
+          <h3>Connect Stripe</h3>
+          <ol class="numbered numbered--small">
+            <li>In Stripe, open <strong>Developers → Webhooks → Add endpoint</strong>.</li>
+            <li>Paste this address and choose the events you want:
+              <span class="copyline"><code id="in-url">{{.InURL}}</code><button class="link" type="button" data-copy="#in-url">Copy</button></span></li>
+            <li>Stripe shows a <strong>signing secret</strong>. Paste it here so Holdfast can check every message is really from Stripe:
+              <form method="post" action="/r/{{.Name}}/secret" data-async class="inline-form">
+                <input name="secret" placeholder="whsec_…" autocomplete="off" spellcheck="false">
+                <button class="btn btn--small" type="submit">Save</button>
+              </form>
+              {{if .NeedSecret}}<span class="todo">Not added yet: signatures aren't being checked.</span>{{else}}<span class="done">{{template "check"}} Added. Signatures are checked.</span>{{end}}
+            </li>
+          </ol>
+        </div>
+        {{else}}
+        <div class="side-card">
+          <h3>Webhook address</h3>
+          {{if eq .Source "github"}}<p>Added to <strong>{{.Repo}}</strong> automatically.</p>{{else}}<p>Point your service here.</p>{{end}}
+          <span class="copyline"><code id="in-url">{{.InURL}}</code><button class="link" type="button" data-copy="#in-url">Copy</button></span>
+        </div>
+        {{end}}
+
+        {{if .TestApp}}
+        <div class="side-card">
+          <h3>Test app</h3>
+          <p>Messages go to Holdfast's built-in test app. Make it misbehave, then push a commit or send a sample.</p>
+          <div class="modepick">
+            {{range .Modes}}
+            <form method="post" action="/r/{{$.Conn.Name}}/test-app/{{.Mode}}" data-async>
+              <button class="modepick__btn{{if .On}} is-on{{end}}" type="submit" title="{{.Hint}}"><span class="modepick__dot modepick__dot--{{.Mode}}"></span>{{.Label}}</button>
+            </form>
+            {{end}}
+          </div>
+          {{if .Received}}<p class="fine">The test app has accepted {{len .Received}} recently.</p>{{end}}
+        </div>
+        {{end}}
+
+        {{if ne .Source "github"}}
+        <div class="side-card">
+          <h3>Try it now</h3>
+          <p>Send a made-up {{if eq .Source "stripe"}}Stripe payment{{else}}event{{end}} through this connection.</p>
+          <form method="post" action="/r/{{.Name}}/sample" data-async><button class="btn btn--small" type="submit">Send a sample event</button></form>
+        </div>
+        {{end}}
+
+        <div class="side-card side-card--quiet">
+          <form method="post" action="/r/{{.Name}}/delete" data-async data-follow data-confirm="Disconnect {{.Label}}? Its messages here are deleted{{if eq .Source "github"}} and the webhook is removed from GitHub{{end}}.">
+            <button class="link link--danger" type="submit">Disconnect</button>
+          </form>
+        </div>
+      </aside>
+      {{end}}
+    </div>
   </div>
 </section>
 {{end}}{{end}}

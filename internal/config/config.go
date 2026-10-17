@@ -36,6 +36,14 @@ type Config struct {
 	Retention    time.Duration
 	TimeZone     *time.Location
 	Demo         bool
+
+	// Live mode
+	GitHubClientID     string
+	GitHubClientSecret string
+	SessionKey         string
+	PublicURL          string // e.g. https://holdfast.onrender.com; defaults to Render's RENDER_EXTERNAL_URL
+	DevLogin           bool   // local development only: sign in without GitHub
+	MaxConnections     int
 }
 
 var routeName = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,40}$`)
@@ -49,6 +57,12 @@ func Load() (Config, error) {
 		Model:      env("HF_MODEL", "gemma3:4b"),
 		AdminToken: os.Getenv("HF_ADMIN_TOKEN"),
 		Demo:       env("HF_DEMO", "true") == "true",
+
+		GitHubClientID:     os.Getenv("HF_GITHUB_CLIENT_ID"),
+		GitHubClientSecret: os.Getenv("HF_GITHUB_CLIENT_SECRET"),
+		SessionKey:         os.Getenv("HF_SESSION_KEY"),
+		PublicURL:          env("HF_PUBLIC_URL", os.Getenv("RENDER_EXTERNAL_URL")),
+		DevLogin:           os.Getenv("HF_DEV_LOGIN") == "true",
 	}
 	// Render's fromService hostport has no scheme.
 	if !strings.Contains(c.OllamaURL, "://") {
@@ -60,6 +74,9 @@ func Load() (Config, error) {
 	}
 	if c.ModelThreads, err = strconv.Atoi(env("HF_MODEL_THREADS", "0")); err != nil {
 		return c, fmt.Errorf("HF_MODEL_THREADS: %w", err)
+	}
+	if c.MaxConnections, err = strconv.Atoi(env("HF_MAX_CONNECTIONS", "5")); err != nil {
+		return c, fmt.Errorf("HF_MAX_CONNECTIONS: %w", err)
 	}
 	if c.Retention, err = time.ParseDuration(env("HF_RETENTION", "72h")); err != nil {
 		return c, fmt.Errorf("HF_RETENTION: %w", err)

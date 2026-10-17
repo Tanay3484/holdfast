@@ -1,4 +1,5 @@
-// Package web serves the website: the live demo, event pages and the unlock board.
+// Package web serves the website: the landing page, Demo mode (a pretend tea shop), Live mode (the
+// visitor's own GitHub repo or Stripe account), event pages, and the resend actions.
 package web
 
 import (
@@ -22,9 +23,12 @@ import (
 	"github.com/Tanay3484/holdfast/internal/buildinfo"
 	"github.com/Tanay3484/holdfast/internal/demo"
 	"github.com/Tanay3484/holdfast/internal/faults"
+	"github.com/Tanay3484/holdfast/internal/github"
 	"github.com/Tanay3484/holdfast/internal/relay"
 	"github.com/Tanay3484/holdfast/internal/replay"
+	"github.com/Tanay3484/holdfast/internal/session"
 	"github.com/Tanay3484/holdfast/internal/store"
+	"github.com/Tanay3484/holdfast/internal/testapp"
 	"github.com/Tanay3484/holdfast/internal/unlock"
 	"github.com/Tanay3484/holdfast/internal/wip"
 )
@@ -32,24 +36,40 @@ import (
 //go:embed templates static
 var assets embed.FS
 
+// Options wires a Server.
+type Options struct {
+	Relay          *relay.Relay
+	Shop           *demo.Shop   // nil when the demo is off
+	Demo           *demo.Runner // nil when the demo is off
+	TestApp        *testapp.App
+	Sessions       *session.Manager
+	GitHub         github.API // nil when GitHub sign-in is not configured
+	DevLogin       bool       // local development only: sign in without GitHub, with a fake GitHub
+	AdminToken     string
+	PublicURL      string // e.g. https://holdfast.onrender.com; empty means "from the request"
+	SelfURL        string // how this process reaches itself, e.g. http://127.0.0.1:8080
+	MaxConnections int
+	Loc            *time.Location
+	Log            *slog.Logger
+}
+
 // Server is the web front end.
 type Server struct {
-	Relay      *relay.Relay
-	Shop       *demo.Shop   // nil when the demo is off
-	Demo       *demo.Runner // nil when the demo is off
-	AdminToken string
-	Loc        *time.Location
-	Log        *slog.Logger
-	Board      func() unlock.Board
-
+	Options
+	Board func() unlock.Board
 	pages map[string]*template.Template
 }
 
 // New parses the templates.
-func New(r *relay.Relay, shop *demo.Shop, runner *demo.Runner, adminToken string, loc *time.Location, log *slog.Logger) (*Server, error) {
-	s := &Server{Relay: r, Shop: shop, Demo: runner, AdminToken: adminToken, Loc: loc, Log: log, Board: unlock.Current,
-		pages: map[string]*template.Template{}}
-	for _, page := range []string{"index.html", "event.html", "progress.html", "route.html"} {
+func New(o Options) (*Server, error) {
+	if o.MaxConnections <= 0 {
+		o.MaxConnections = 5
+	}
+	if o.TestApp == nil {
+		o.TestApp = testapp.New()
+	}
+	s := &Server{Options: o, Board: unlock.Current, pages: map[string]*template.Template{}}
+	for _, page := range []string{"index.html", "demo.html", "live.html", "connect.html", "route.html", "event.html", "progress.html"} {
 		t, err := template.New("").Funcs(s.funcs()).ParseFS(assets, "templates/base.html", "templates/partials.html", "templates/"+page)
 		if err != nil {
 			return nil, fmt.Errorf("template %s: %w", page, err)
@@ -65,13 +85,18 @@ func (s *Server) Routes(mux *http.ServeMux) {
 	mux.Handle("GET /static/", http.StripPrefix("/static/", cacheFor(time.Hour, http.FileServerFS(static))))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok")) })
 
+	// Providers send here.
 	mux.HandleFunc("POST /in/{route}", s.Relay.HandleIngest)
-	if s.Shop != nil {
-		mux.Handle("POST /demo-shop/webhook", s.Shop)
-		mux.HandleFunc("POST /demo/{fault}", s.handleDemo)
-	}
+	mux.Handle("POST /test-app/{conn}", s.TestApp)
 
 	mux.HandleFunc("GET /{$}", s.handleIndex)
+	if s.Shop != nil {
+		mux.Handle("POST /demo-shop/webhook", s.Shop)
+		mux.HandleFunc("GET /demo", s.handleDemoPage)
+		mux.HandleFunc("POST /demo/{fault}", s.handleDemo)
+	}
+	s.liveRoutes(mux)
+
 	mux.HandleFunc("GET /r/{route}", s.handleRoute)
 	mux.HandleFunc("GET /fragments/board/{route}", s.handleBoardFragment)
 	mux.HandleFunc("GET /events/{id}", s.handleEvent)
@@ -85,15 +110,24 @@ func (s *Server) Routes(mux *http.ServeMux) {
 type page struct {
 	Title   string
 	Version string
+	Mode    string // home | demo | live
+	User    *store.User
 	Game    unlock.Board
-	Demos   []demoButton
+	Demos   []faults.Spec
 	Board   *boardView
 	Event   *eventDetail
+	Live    *liveView
+	Conn    *connView
+	Connect *connectView
 	Admin   bool
 }
 
-func (s *Server) newPage(title string) page {
-	return page{Title: title, Version: buildinfo.Version, Game: s.Board()}
+func (s *Server) newPage(r *http.Request, title, mode string) page {
+	p := page{Title: title, Version: buildinfo.Version, Mode: mode, Game: s.Board()}
+	if u, ok := s.currentUser(r); ok {
+		p.User = &u
+	}
+	return p
 }
 
 func (s *Server) render(w http.ResponseWriter, name, block string, data any) {
@@ -110,35 +144,28 @@ func (s *Server) render(w http.ResponseWriter, name, block string, data any) {
 // ---------------------------------------------------------------------------------------------
 // Pages
 
-type demoButton struct {
-	faults.Spec
-	Level unlock.Result
-	Gated bool // this demo behaves differently once its level is unlocked
+func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
+	s.render(w, "index.html", "base", s.newPage(r, "Holdfast · every webhook, held fast", "home"))
 }
 
-func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
-	p := s.newPage("Holdfast · every webhook, held fast")
-	if s.Shop != nil {
-		b, err := s.board(r.Context(), demo.RouteName)
-		if err != nil {
-			s.fail(w, err)
-			return
-		}
-		p.Board = b
-		for _, spec := range faults.Demo {
-			btn := demoButton{Spec: spec}
-			if spec.Level != "" {
-				btn.Level, btn.Gated = p.Game.Get(spec.Level), true
-			}
-			p.Demos = append(p.Demos, btn)
-		}
+func (s *Server) handleDemoPage(w http.ResponseWriter, r *http.Request) {
+	p := s.newPage(r, "Demo · Holdfast", "demo")
+	b, err := s.board(r.Context(), demo.RouteName)
+	if err != nil {
+		s.fail(w, err)
+		return
 	}
-	s.render(w, "index.html", "base", p)
+	p.Board, p.Demos = b, faults.Demo
+	s.render(w, "demo.html", "base", p)
 }
 
 func (s *Server) handleRoute(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("route")
-	rt, ok := s.Relay.Routes[name]
+	if name == demo.RouteName {
+		http.Redirect(w, r, "/demo", http.StatusSeeOther)
+		return
+	}
+	rt, ok := s.Relay.Route(name)
 	if !ok {
 		http.NotFound(w, r)
 		return
@@ -151,14 +178,20 @@ func (s *Server) handleRoute(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
-	p := s.newPage(b.Client + " · Holdfast")
-	p.Board, p.Admin = b, !rt.Public
+	p := s.newPage(r, b.Client+" · Holdfast", "live")
+	p.Board, p.Admin = b, rt.Owner == 0
+	if rt.Owner != 0 {
+		if p.Conn, err = s.connView(r, rt); err != nil {
+			s.fail(w, err)
+			return
+		}
+	}
 	s.render(w, "route.html", "base", p)
 }
 
 func (s *Server) handleBoardFragment(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("route")
-	rt, ok := s.Relay.Routes[name]
+	rt, ok := s.Relay.Route(name)
 	if !ok {
 		http.NotFound(w, r)
 		return
@@ -171,13 +204,16 @@ func (s *Server) handleBoardFragment(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
-	p := s.newPage("")
+	p := s.newPage(r, "", "")
 	p.Board = b
-	s.render(w, "index.html", "board", p)
+	if rt.Owner != 0 {
+		p.Conn, _ = s.connView(r, rt)
+	}
+	s.render(w, "route.html", "board", p)
 }
 
-func (s *Server) handleProgress(w http.ResponseWriter, _ *http.Request) {
-	s.render(w, "progress.html", "base", s.newPage("Unlock board · Holdfast"))
+func (s *Server) handleProgress(w http.ResponseWriter, r *http.Request) {
+	s.render(w, "progress.html", "base", s.newPage(r, "Unlock board · Holdfast", ""))
 }
 
 func (s *Server) handleEvent(w http.ResponseWriter, r *http.Request) {
@@ -185,7 +221,11 @@ func (s *Server) handleEvent(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	p := s.newPage(d.What + " · Holdfast")
+	mode := "live"
+	if d.Public {
+		mode = "demo"
+	}
+	p := s.newPage(r, d.What+" · Holdfast", mode)
 	p.Event = d
 	s.render(w, "event.html", "base", p)
 }
@@ -195,7 +235,7 @@ func (s *Server) handleEventFragment(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	p := s.newPage("")
+	p := s.newPage(r, "", "")
 	p.Event = d
 	s.render(w, "event.html", "event-live", p)
 }
@@ -215,7 +255,7 @@ func (s *Server) eventFor(w http.ResponseWriter, r *http.Request) (*eventDetail,
 		s.fail(w, err)
 		return nil, false
 	}
-	rt, ok := s.Relay.Routes[ev.Route]
+	rt, ok := s.Relay.Route(ev.Route)
 	if !ok {
 		http.NotFound(w, r)
 		return nil, false
@@ -245,7 +285,7 @@ func (s *Server) handleDemo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !s.Demo.Allow(visitor(r)) {
-		respond(w, r, http.StatusTooManyRequests, "One at a time, please. Try again in a moment.", "/#demo")
+		respond(w, r, http.StatusTooManyRequests, "One at a time, please. Try again in a moment.", "/demo")
 		return
 	}
 	// The scenario can take a few seconds (it waits between sends), so it runs on its own.
@@ -256,7 +296,7 @@ func (s *Server) handleDemo(w http.ResponseWriter, r *http.Request) {
 			s.Log.Error("demo failed", "fault", spec.Fault, "err", err)
 		}
 	}()
-	respond(w, r, http.StatusAccepted, "Sent: "+strings.ToLower(spec.Label[:1])+spec.Label[1:]+".", "/#demo")
+	respond(w, r, http.StatusAccepted, "Sent: "+strings.ToLower(spec.Label[:1])+spec.Label[1:]+".", "/demo")
 }
 
 func (s *Server) handleResendOne(w http.ResponseWriter, r *http.Request) {
@@ -270,7 +310,7 @@ func (s *Server) handleResendOne(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	rt, ok := s.Relay.Routes[ev.Route]
+	rt, ok := s.Relay.Route(ev.Route)
 	if !ok || !s.canSee(w, r, rt) {
 		return
 	}
@@ -280,7 +320,7 @@ func (s *Server) handleResendOne(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleResendAll(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("route")
-	rt, ok := s.Relay.Routes[name]
+	rt, ok := s.Relay.Route(name)
 	if !ok || !sameOrigin(r) {
 		http.Error(w, "Bad request.", http.StatusBadRequest)
 		return
@@ -291,7 +331,7 @@ func (s *Server) handleResendAll(w http.ResponseWriter, r *http.Request) {
 	steps, err := s.Relay.Resend(r.Context(), name, nil)
 	back := "/r/" + name
 	if rt.Public {
-		back = "/#demo"
+		back = "/demo"
 	}
 	s.afterResend(w, r, steps, err, back)
 }
@@ -299,10 +339,12 @@ func (s *Server) handleResendAll(w http.ResponseWriter, r *http.Request) {
 func (s *Server) afterResend(w http.ResponseWriter, r *http.Request, steps []replay.Step, err error, back string) {
 	switch {
 	case wip.IsLocked(err):
-		respond(w, r, http.StatusConflict, "Resending is still locked. Write internal/replay/replay.go to unlock it.", back)
+		respond(w, r, http.StatusConflict, "Resending isn't available on this build.", back)
 	case err != nil:
 		s.Log.Error("resend", "err", err)
 		respond(w, r, http.StatusInternalServerError, "Couldn't resend: "+err.Error(), back)
+	case len(steps) == 0:
+		respond(w, r, http.StatusOK, "Nothing is held, so there's nothing to send.", back)
 	default:
 		sent := 0
 		for _, st := range steps {
@@ -323,7 +365,7 @@ func respond(w http.ResponseWriter, r *http.Request, status int, msg, back strin
 	if r.Header.Get("Accept") == "application/json" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(status)
-		_ = json.NewEncoder(w).Encode(map[string]any{"message": msg, "ok": status < 300})
+		_ = json.NewEncoder(w).Encode(map[string]any{"message": msg, "ok": status < 300, "redirect": back})
 		return
 	}
 	http.Redirect(w, r, back, http.StatusSeeOther)
@@ -332,9 +374,18 @@ func respond(w http.ResponseWriter, r *http.Request, status int, msg, back strin
 // ---------------------------------------------------------------------------------------------
 // Access
 
+// canSee lets through the public demo, a Live connection's owner, and the admin for config routes.
 func (s *Server) canSee(w http.ResponseWriter, r *http.Request, rt relay.Route) bool {
 	if rt.Public {
 		return true
+	}
+	if rt.Owner != 0 {
+		if uid, ok := s.Sessions.User(r); ok && uid == rt.Owner {
+			return true
+		}
+		// Someone else's connection: don't even confirm it exists.
+		http.NotFound(w, r)
+		return false
 	}
 	if s.AdminToken != "" {
 		if _, pass, ok := r.BasicAuth(); ok && subtle.ConstantTimeCompare([]byte(pass), []byte(s.AdminToken)) == 1 {
@@ -353,7 +404,7 @@ func sameOrigin(r *http.Request) bool {
 	}
 	origin := r.Header.Get("Origin")
 	if origin == "" {
-		return true // old browsers and curl; the admin password still applies
+		return true // old browsers and curl; sign-in and the admin password still apply
 	}
 	u, err := url.Parse(origin)
 	return err == nil && u.Host == r.Host

@@ -1,0 +1,82 @@
+{{define "content"}}{{$live := .Live}}
+<div class="banner banner--live">
+  <div class="wrap banner__inner">
+    <span class="banner__tag"><span class="modes__dot modes__dot--live"></span>Live mode</span>
+    <p>Real webhooks from your own GitHub repository or Stripe account. Only you can see your connections and what arrives on them. <a href="/demo">Just looking? Try the demo →</a></p>
+  </div>
+</div>
+
+{{if not .User}}
+<section class="live-in">
+  <div class="wrap live-in__grid">
+    <div class="live-in__main">
+      <h1>Put Holdfast in front of a real repository.</h1>
+      <ol class="numbered">
+        <li><strong>Sign in with GitHub.</strong> Holdfast asks for one permission: to add and remove webhooks on your repositories. It can't read or change your code.</li>
+        <li><strong>Pick a repository.</strong> Holdfast adds itself as a webhook. GitHub sends a test "ping" straight away, so you'll see the first message arrive within seconds.</li>
+        <li><strong>Choose where messages go.</strong> Your own app's address, or Holdfast's built-in test app, which you can make fail on purpose.</li>
+      </ol>
+      {{if $live.SignInReady}}
+        <a class="btn btn--primary btn--big btn--gh" href="/auth/github">{{template "gh"}} Sign in with GitHub</a>
+      {{else if $live.DevLogin}}
+        <a class="btn btn--primary btn--big" href="/auth/dev">Sign in as a local developer</a>
+        <p class="fine">Development mode: GitHub is simulated and no webhooks are really added.</p>
+      {{else}}
+        <button class="btn btn--big" disabled>{{template "gh"}} Sign in with GitHub</button>
+        <p class="fine">GitHub sign-in isn't set up on this server yet. The <a href="/demo">demo</a> works without it.</p>
+      {{end}}
+    </div>
+    <aside class="live-in__side">
+      <div class="side-card">
+        <span class="src src--stripe">Stripe</span>
+        <h3>Using Stripe?</h3>
+        <p>After you sign in, you can connect Stripe by hand: paste the address Holdfast gives you into Stripe's webhook settings, and Stripe's signing secret back into Holdfast.</p>
+        <p class="fine">One-click "Sign in with Stripe" needs a Stripe platform account, which this project doesn't have yet. We'd rather say so than pretend.</p>
+      </div>
+      <div class="side-card">
+        <h3>What Holdfast keeps</h3>
+        <p>Messages for three days, so you can resend them. Your GitHub token, encrypted. Nothing is sent to an AI company: Gemma runs on the same server.</p>
+      </div>
+    </aside>
+  </div>
+</section>
+{{else}}
+<section class="conns">
+  <div class="wrap">
+    <div class="conns__head">
+      <div>
+        <p class="eyebrow">Signed in as {{.User.Login}}</p>
+        <h1>Your connections</h1>
+      </div>
+      {{if $live.CanAdd}}<a class="btn btn--primary" href="/live/new">+ New connection</a>{{else}}<span class="fine">You've reached the limit of {{$live.Max}} connections.</span>{{end}}
+    </div>
+
+    {{if $live.Conns}}
+    <ul class="conn-grid">
+      {{range $live.Conns}}
+      <li>
+        <a class="conn-card{{if .Held}} conn-card--held{{end}}" href="/r/{{.Name}}">
+          <span class="conn-card__top">{{template "source-badge" .Source}}<span class="conn-card__where">→ {{.Where}}</span></span>
+          <h3>{{.Label}}</h3>
+          <span class="conn-card__stats">
+            <span class="stat stat--ok"><strong>{{.Arrived}}</strong> arrived</span>
+            <span class="stat{{if .Held}} stat--held{{end}}"><strong>{{.Held}}</strong> held</span>
+            {{if .Moving}}<span class="stat stat--busy"><strong>{{.Moving}}</strong> on the way</span>{{end}}
+          </span>
+          <span class="conn-card__go">Open <span aria-hidden="true">→</span></span>
+        </a>
+      </li>
+      {{end}}
+    </ul>
+    {{else}}
+    <div class="empty-state">
+      <h2>No connections yet</h2>
+      <p>Connect a GitHub repository and you'll see its first webhook within seconds.</p>
+      <a class="btn btn--primary btn--big" href="/live/new">{{template "gh"}} Connect a repository</a>
+      <p class="fine">Or <a href="/live/new?kind=stripe">connect Stripe by hand</a>, or <a href="/live/new?kind=generic">any other service</a>.</p>
+    </div>
+    {{end}}
+  </div>
+</section>
+{{end}}
+{{end}}

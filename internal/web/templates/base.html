@@ -4,8 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{.Title}}</title>
-<meta name="description" content="Holdfast keeps every webhook safe. When your app stumbles, it holds the message, explains what went wrong in plain words, and sends it again once it's fixed.">
+<meta name="description" content="Holdfast keeps every webhook safe. When your app stumbles, it holds the message, explains what went wrong in plain words with an open model, and sends it again once it's fixed.">
 <meta name="color-scheme" content="light dark">
+<meta property="og:title" content="Holdfast · every webhook, held fast">
+<meta property="og:description" content="A safety net for webhooks, explained in plain words by Gemma.">
 <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,16 +15,23 @@
 <link rel="stylesheet" href="/static/app.css?v={{.Version}}">
 <script src="/static/app.js?v={{.Version}}" defer></script>
 </head>
-<body>
+<body class="mode-{{.Mode}}">
 <a class="skip" href="#main">Skip to content</a>
 <header class="top">
   <div class="wrap top__inner">
     <a class="brand" href="/">{{template "logo"}}<span>Holdfast</span></a>
-    <nav class="nav" aria-label="Main">
-      <a href="/#demo">Live demo</a>
-      <a href="/#how">How it works</a>
-      {{if not .Game.Done}}<a class="nav__game" href="/progress">{{template "lock"}} {{.Game.Unlocked}}/{{.Game.Total}} unlocked</a>{{end}}
+    <nav class="modes" aria-label="Mode">
+      <a class="modes__item{{if eq .Mode "demo"}} is-on{{end}}" href="/demo"{{if eq .Mode "demo"}} aria-current="page"{{end}}><span class="modes__dot modes__dot--demo"></span>Demo</a>
+      <a class="modes__item{{if eq .Mode "live"}} is-on{{end}}" href="/live"{{if eq .Mode "live"}} aria-current="page"{{end}}><span class="modes__dot modes__dot--live"></span>Live</a>
     </nav>
+    <div class="top__right">
+      {{with .User}}
+        <a class="me" href="/live" title="Your connections">{{if .Avatar}}<img src="{{.Avatar}}" alt="" width="26" height="26">{{else}}<span class="me__initial">{{slice .Login 0 1}}</span>{{end}}<span class="me__name">{{.Login}}</span></a>
+        <form method="post" action="/auth/logout"><button class="link" type="submit">Sign out</button></form>
+      {{else}}
+        <a class="top__link" href="/#how">How it works</a>
+      {{end}}
+    </div>
   </div>
 </header>
 <main id="main">
@@ -30,8 +39,16 @@
 </main>
 <footer class="foot">
   <div class="wrap foot__inner">
-    <p><strong>Holdfast</strong> keeps every webhook safe and explains failures with <a href="https://ai.google.dev/gemma">Gemma</a>, an open-weight model running on the same server.</p>
-    <p class="foot__meta">Open source · <a href="https://github.com/Tanay3484/holdfast">GitHub</a> · Built for Hacktoberfest 2026 · v{{.Version}}</p>
+    <div>
+      <a class="brand brand--small" href="/">{{template "logo"}}<span>Holdfast</span></a>
+      <p>Every webhook, held fast. Explanations by <a href="https://ai.google.dev/gemma">Gemma</a>, an open-weight model running on the same server, so your clients' data never goes to an AI company.</p>
+    </div>
+    <ul class="foot__links">
+      <li><a href="/demo">Demo</a></li>
+      <li><a href="/live">Live</a></li>
+      <li><a href="https://github.com/Tanay3484/holdfast">Source on GitHub</a></li>
+    </ul>
+    <p class="foot__meta">Built for the Hacktoberfest 2026 Open-Source AI Challenge · MIT licence · v{{.Version}}</p>
   </div>
 </footer>
 <div class="toast" role="status" aria-live="polite" hidden></div>

@@ -17,6 +17,7 @@ import (
 	"github.com/Tanay3484/holdfast/internal/config"
 	"github.com/Tanay3484/holdfast/internal/describe"
 	"github.com/Tanay3484/holdfast/internal/diagnose"
+	"github.com/Tanay3484/holdfast/internal/netguard"
 	"github.com/Tanay3484/holdfast/internal/policy"
 	"github.com/Tanay3484/holdfast/internal/replay"
 	"github.com/Tanay3484/holdfast/internal/shape"
@@ -36,18 +37,23 @@ type Route struct {
 	config.Route
 	Timeout time.Duration
 	Policy  policy.Policy
+	Owner   int64 // the signed-in user a Live connection belongs to; 0 for demo and config routes
+	Guarded bool  // the destination was typed by a user: never connect to private addresses
 }
 
 // Relay holds the moving parts.
 type Relay struct {
 	Store     *store.Store
-	Routes    map[string]Route
 	Diagnoser diagnose.Diagnoser
-	HTTP      *http.Client
+	HTTP      *http.Client // for demo, test-app and config routes
+	SafeHTTP  *http.Client // for destinations users typed in; refuses private addresses
 	Loc       *time.Location
 	Retention time.Duration
 	Log       *slog.Logger
 	Now       func() time.Time
+
+	routesMu sync.RWMutex
+	routes   map[string]Route
 
 	ingestMu sync.Mutex // makes the duplicate check and insert one step
 	kick     chan struct{}
@@ -66,9 +72,10 @@ type cachedNote struct {
 func New(st *store.Store, routes []Route, dg diagnose.Diagnoser, loc *time.Location, retention time.Duration, log *slog.Logger) *Relay {
 	r := &Relay{
 		Store:     st,
-		Routes:    map[string]Route{},
+		routes:    map[string]Route{},
 		Diagnoser: dg,
-		HTTP:      &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
+		HTTP:      &http.Client{CheckRedirect: noRedirects},
+		SafeHTTP:  &http.Client{CheckRedirect: noRedirects, Transport: netguard.Transport()},
 		Loc:       loc,
 		Retention: retention,
 		Log:       log,
@@ -78,9 +85,33 @@ func New(st *store.Store, routes []Route, dg diagnose.Diagnoser, loc *time.Locat
 		notes:     map[string]cachedNote{},
 	}
 	for _, rt := range routes {
-		r.Routes[rt.Name] = rt
+		r.routes[rt.Name] = rt
 	}
 	return r
+}
+
+func noRedirects(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+
+// Route looks up a route by name.
+func (r *Relay) Route(name string) (Route, bool) {
+	r.routesMu.RLock()
+	defer r.routesMu.RUnlock()
+	rt, ok := r.routes[name]
+	return rt, ok
+}
+
+// SetRoute adds or replaces a route while the relay runs.
+func (r *Relay) SetRoute(rt Route) {
+	r.routesMu.Lock()
+	defer r.routesMu.Unlock()
+	r.routes[rt.Name] = rt
+}
+
+// RemoveRoute stops accepting events for a route. Its stored events stay until pruned.
+func (r *Relay) RemoveRoute(name string) {
+	r.routesMu.Lock()
+	defer r.routesMu.Unlock()
+	delete(r.routes, name)
 }
 
 // Run starts the delivery worker, the diagnosis worker and the pruner, and blocks until ctx ends.
@@ -118,7 +149,7 @@ func (r *Relay) queueDiagnosis(id int64) {
 
 // HandleIngest is POST /in/{route}.
 func (r *Relay) HandleIngest(w http.ResponseWriter, req *http.Request) {
-	rt, ok := r.Routes[req.PathValue("route")]
+	rt, ok := r.Route(req.PathValue("route"))
 	if !ok {
 		writeJSON(w, http.StatusNotFound, map[string]any{"error": "unknown route"})
 		return
@@ -298,7 +329,7 @@ var forwarded = []string{
 
 // Deliver makes one attempt and records what happened.
 func (r *Relay) Deliver(ctx context.Context, ev store.Event) {
-	rt, ok := r.Routes[ev.Route]
+	rt, ok := r.Route(ev.Route)
 	if !ok {
 		_ = r.Store.RecordAttempt(ctx, store.Attempt{EventID: ev.ID, At: r.Now(), Action: string(policy.Hold),
 			Reason: "This route is no longer configured."}, store.Held, time.Time{}, "This route is no longer configured.")
@@ -349,7 +380,11 @@ func (r *Relay) send(ctx context.Context, rt Route, ev store.Event, attempt int)
 	req.Header.Set("Holdfast-Attempt", fmt.Sprint(attempt))
 
 	start := time.Now()
-	resp, err := r.HTTP.Do(req)
+	client := r.HTTP
+	if rt.Guarded {
+		client = r.SafeHTTP
+	}
+	resp, err := client.Do(req)
 	a.Duration = time.Since(start)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) || isTimeout(err) {
@@ -403,7 +438,7 @@ func (r *Relay) decide(rt Route, attempt int, o policy.Outcome) policy.Decision 
 
 // Resend plans and queues held events. ids nil means every held event in the route.
 func (r *Relay) Resend(ctx context.Context, route string, ids []int64) ([]replay.Step, error) {
-	rt, ok := r.Routes[route]
+	rt, ok := r.Route(route)
 	if !ok {
 		return nil, fmt.Errorf("unknown route %q", route)
 	}
@@ -520,7 +555,7 @@ func (r *Relay) saveDiagnosis(ctx context.Context, id int64, d diagnose.Diagnosi
 
 // Facts collects what code knows about an event, for the diagnoser.
 func (r *Relay) Facts(ctx context.Context, ev store.Event) (diagnose.Facts, error) {
-	rt := r.Routes[ev.Route]
+	rt, _ := r.Route(ev.Route)
 	f := diagnose.Facts{
 		Source:    ev.Source,
 		EventType: ev.EventType,
@@ -597,7 +632,8 @@ func (r *Relay) noteFacts(ctx context.Context, route string) (diagnose.NoteFacts
 	if err != nil {
 		return diagnose.NoteFacts{}, "", err
 	}
-	n := diagnose.NoteFacts{App: r.Routes[route].Client, Held: len(held), Whats: map[string]int{}, Titles: map[string]int{}, Loc: r.Loc}
+	rt, _ := r.Route(route)
+	n := diagnose.NoteFacts{App: rt.Client, Held: len(held), Whats: map[string]int{}, Titles: map[string]int{}, Loc: r.Loc}
 	var fp strings.Builder
 	for i, ev := range held {
 		if i == 0 || ev.ReceivedAt.Before(n.First) {

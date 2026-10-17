@@ -4,11 +4,12 @@
     <div class="hero__text">
       <p class="eyebrow">For freelance developers who look after their clients' integrations</p>
       <h1>Every webhook,<br><em>held fast.</em></h1>
-      <p class="lede">When a payment service or GitHub sends a message and your client's app stumbles, that message is usually gone for good. Holdfast keeps every one safe, explains what went wrong in plain words, and sends it again once it's fixed.</p>
+      <p class="lede">When Stripe or GitHub sends a message and your client's app stumbles, that message is usually gone for good. Holdfast keeps every one safe, explains what went wrong in plain words, and sends it again once it's fixed.</p>
       <div class="cta">
-        <a class="btn btn--primary" href="#demo">Try the live demo</a>
-        <a class="btn" href="#how">How it works</a>
+        <a class="btn btn--primary btn--big" href="/demo">Try the demo <span aria-hidden="true">→</span></a>
+        <a class="btn btn--big" href="/live">{{template "gh"}} Connect a GitHub repo</a>
       </div>
+      <p class="hero__fine">No sign-up for the demo. Live mode asks GitHub for one permission: managing webhooks.</p>
     </div>
     <div class="hero__art" aria-hidden="true">
       <svg viewBox="0 0 420 300" class="flow">
@@ -24,32 +25,61 @@
   </div>
 </section>
 
-{{if .Board}}
-<section id="demo" class="demo">
+<section class="paths">
   <div class="wrap">
     <div class="section-head">
-      <p class="eyebrow">Live demo</p>
-      <h2>Break Chai &amp; Co.'s shop. Nothing gets lost.</h2>
-      <p>Chai &amp; Co. sells tea online, and every payment reaches its shop through Holdfast. Press a button to cause a real problem, then watch the dashboard.</p>
+      <p class="eyebrow">Two ways to try it</p>
+      <h2>Watch it work, then point it at something real.</h2>
     </div>
-    <div class="demo__grid">
-      <div class="controls">
-        {{range .Demos}}
-        <form method="post" action="/demo/{{.Fault}}" data-async>
-          <button class="control" type="submit">
-            <span class="control__label">{{.Label}}</span>
-            <span class="control__explain">{{.Explain}}</span>
-            {{if and .Gated (ne .Level.State "unlocked")}}<span class="control__lock">{{template "lock"}} Works properly after level {{.Level.N}}</span>{{end}}
-          </button>
-        </form>
-        {{end}}
-        <p class="controls__foot">Everyone sees the same demo shop. Demo events are cleared after three days.</p>
-      </div>
-      <div class="dash" id="board" data-poll="/fragments/board/{{.Board.Route}}">{{template "board" .}}</div>
+    <div class="paths__grid">
+      <a class="path path--demo" href="/demo">
+        <span class="path__badge"><span class="modes__dot modes__dot--demo"></span>Demo · no sign-up</span>
+        <h3>A pretend tea shop</h3>
+        <p>Chai &amp; Co. takes payments through Holdfast. Break its shop seven different ways and watch nothing get lost.</p>
+        <ul class="ticks">
+          <li>{{template "check"}} Made-up customers and payments</li>
+          <li>{{template "check"}} Real relay, real retries, real Gemma explanations</li>
+          <li>{{template "check"}} See the note the shop owner would read</li>
+        </ul>
+        <span class="path__go">Open the demo <span aria-hidden="true">→</span></span>
+      </a>
+      <a class="path path--live" href="/live">
+        <span class="path__badge"><span class="modes__dot modes__dot--live"></span>Live · real webhooks</span>
+        <h3>Your own GitHub repo</h3>
+        <p>Sign in with GitHub, pick a repository, and Holdfast adds itself as the webhook. Push a commit and watch it arrive.</p>
+        <ul class="ticks">
+          <li>{{template "check"}} No app of your own? Use the built-in test app and make it fail on purpose</li>
+          <li>{{template "check"}} Stripe connects by hand in two minutes</li>
+          <li>{{template "check"}} Your events are visible only to you</li>
+        </ul>
+        <span class="path__go">Go live <span aria-hidden="true">→</span></span>
+      </a>
     </div>
   </div>
 </section>
-{{end}}
+
+<section class="example">
+  <div class="wrap example__inner">
+    <div class="example__text">
+      <p class="eyebrow">What your client reads</p>
+      <h2>Not a stack trace. A sentence.</h2>
+      <p>When something is held, Gemma reads what code found and explains it twice: once for the shop owner, once for you. Code checks every word it writes for the owner: no jargon, no invented numbers, no promises nobody made.</p>
+    </div>
+    <figure class="example__card">
+      <div class="story story--held story--compact">
+        <p class="eyebrow">Stripe · payment received · ₹1050 from Nisha</p>
+        <h3>The message arrived in a new layout</h3>
+        <p class="story__summary">Nisha's ₹1050 payment couldn't reach Chai &amp; Co. because the sender changed how they send customer information. Holdfast is keeping it safe, and it can be sent again once the system is updated to expect the new format.</p>
+        <p class="byline">Explained by Gemma, checked by code.</p>
+      </div>
+      <div class="example__dev">
+        <span class="eyebrow">For the developer</span>
+        <p>The sender now uses <code>data.object.customer.id</code> instead of <code>data.object.customer_id</code>. Change the app to expect <code>data.object.customer.id</code>.</p>
+      </div>
+      <figcaption>A real answer from the demo, with gemma3:4b.</figcaption>
+    </figure>
+  </div>
+</section>
 
 <section id="how" class="how">
   <div class="wrap">
@@ -67,34 +97,26 @@
       <li class="step">
         <span class="step__n">2</span>
         <h3>Checked at the door</h3>
-        {{if unlocked "signature"}}
-        <p>Every message carries a signature only the real sender can make. Holdfast checks it first. Anything that doesn't match is kept aside, never passed on.</p>
+        <p>Every message carries a signature only the real sender can make. Anything that doesn't match, or is suspiciously old, is kept aside and never passed on.</p>
         <p class="step__demo"><span class="sig sig--ok">{{template "check"}} Signed by Stripe</span> <span class="sig sig--bad">Signature didn't match</span></p>
-        {{else}}{{template "wip" (level "signature")}}{{end}}
       </li>
       <li class="step">
         <span class="step__n">3</span>
         <h3>Passed on, patiently</h3>
-        {{if unlocked "retries"}}
-        <p>If the app is down or busy, Holdfast waits a little longer each time and tries again. If the app says no for a reason a retry won't fix, it stops and holds the message instead of hammering away.</p>
+        <p>If the app is down or busy, Holdfast waits a little longer each time and tries again. If the app says no for a reason a retry won't fix, it stops and holds the message.</p>
         <p class="step__demo"><span class="try-chip try-chip--held">Try 1 · down</span><span class="try-chip try-chip--held">Try 2 · down</span><span class="try-chip try-chip--ok">Try 3 · arrived</span></p>
-        {{else}}{{template "wip" (level "retries")}}{{end}}
       </li>
       <li class="step">
         <span class="step__n">4</span>
         <h3>Explained in plain words</h3>
-        {{if unlocked "changes"}}
-        <p>Code compares a failed message with the last one that worked and finds exactly what moved. Gemma turns that into a sentence your client understands, and a fix for you.</p>
-        <p class="step__demo"><code class="chg chg--removed">customer_id removed</code> <code class="chg chg--added">customer.id added</code></p>
-        {{else}}{{template "wip" (level "changes")}}{{end}}
+        <p>Code compares a failed message with the last one that worked and finds exactly what moved. Gemma turns that into a sentence for the owner and a fix for you.</p>
+        <p class="step__demo"><code class="chg chg--removed">customer_id</code> <code class="chg chg--added">customer.id</code></p>
       </li>
       <li class="step">
         <span class="step__n">5</span>
         <h3>Sent again, never twice</h3>
-        {{if unlocked "resend"}}
-        <p>Once it's fixed, one button sends everything held, in the order it arrived. Anything already delivered, or that arrived twice, is left out, so a payment is never counted twice.</p>
+        <p>One button sends everything held, in the order it arrived. Anything already delivered, or that arrived twice, is left out, so a payment is never counted twice.</p>
         <p class="step__demo"><span class="pill pill--delivered">Arrived</span> <span class="pill pill--duplicate">Duplicate stopped</span></p>
-        {{else}}{{template "wip" (level "resend")}}{{end}}
       </li>
     </ol>
   </div>
@@ -108,8 +130,23 @@
     </div>
     <ul class="open__list">
       <li><strong>Private.</strong> Messages carry names, addresses and amounts. Gemma runs on the same server as Holdfast, so none of it goes to an AI company.</li>
-      <li><strong>Cheap to run.</strong> No bill per message. A small model on one server explains every failure.</li>
-      <li><strong>Checked.</strong> The model picks from a fixed list of causes and code checks every word it writes for the client. If it gets something wrong, the built-in rules answer instead.</li>
+      <li><strong>Cheap to run.</strong> No bill per message. One small model on one server explains every failure.</li>
+      <li><strong>Checked.</strong> The model picks from a fixed list of causes and code checks what it writes. If it gets something wrong, the built-in rules answer instead.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="honest">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">What's real today</p>
+      <h2>Plainly, so you know what you're looking at.</h2>
+    </div>
+    <ul class="honest__list">
+      <li class="honest__item honest__item--ok"><strong>GitHub, live.</strong> Sign in, pick a repository, and real webhooks flow through Holdfast.</li>
+      <li class="honest__item honest__item--part"><strong>Stripe, by hand.</strong> One-click Stripe sign-in needs a Stripe platform account, which this project doesn't have yet. You paste one address into Stripe and its signing secret into Holdfast instead.</li>
+      <li class="honest__item honest__item--ok"><strong>The demo's customers are made up.</strong> The relay, retries, checks and explanations are the same code Live mode uses.</li>
+      <li class="honest__item honest__item--part"><strong>Explanations take a minute.</strong> Gemma runs on a small CPU server. You see the built-in rules' answer straight away, and Gemma's replaces it when it's ready.</li>
     </ul>
   </div>
 </section>
