@@ -1,6 +1,6 @@
 # Brief — Holdfast
 
-Status: Draft
+Status: Approved
 Owner: Tanay
 Updated: 2026-10-13
 
