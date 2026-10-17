@@ -13,7 +13,9 @@ Each one is a single file with the stub, the contract and the known answers in i
 hand, add your own `_test.go` beside it, then run `go run ./cmd/unlock` and restart the server to see the
 site change. Any order works; this order unlocks the demo in the most satisfying way.
 
-- [ ] **H1 · Signature check** — `internal/verify/verify.go` · @human · R1.5, R1.6, R5.2 · ~1.5 h
+- [x] **H1 · Signature check** — `internal/verify/verify.go` · @human · R1.5, R1.6, R5.2 · ~1.5 h
+  - 2026-10-18: `GitHub` written by Tanay. `Stripe` started by Tanay (header check, loop structure) and
+    finished by the AI at Tanay's request; tests by the AI.
   - In: secret, raw body, header value (Stripe also: now, tolerance). Out: nil or one of the four errors.
   - Edge cases: empty header; missing `sha256=`; non-hex; several `v1` values (rotation); `v0` present;
     timestamp in the future beyond tolerance; check the signature before the timestamp.
