@@ -1,7 +1,7 @@
 // Package policy decides what happens after each delivery attempt: done, try again later, or hold.
 //
 //	╔══════════════════════════════════════════════════════════════════════╗
-//	║  LEVEL 2 · SMART RETRIES                                owner: @human ║
+//	║  LEVEL 2 · SMART RETRIES                                owner: @human║
 //	║                                                                      ║
 //	║  Write Decide below. Unlocks:                                        ║
 //	║   • the attempt history on every event page ("Trying again in 4s")   ║
@@ -19,9 +19,8 @@
 package policy
 
 import (
+	"strconv"
 	"time"
-
-	"github.com/Tanay3484/holdfast/internal/wip"
 )
 
 // Outcome is what happened on one delivery attempt.
@@ -73,5 +72,76 @@ func Default() Policy {
 // Reason must never be empty; it is shown to a non-technical reader, so say what happened in words
 // ("The shop's server was down") rather than codes alone.
 func (p Policy) Decide(attempt int, o Outcome) (Decision, error) {
-	return Decision{}, wip.Locked("policy.Decide") // TODO(@human, H2): replace this line
+	if attempt <= 0 {
+		return Decision{
+			Action: Hold,
+			Reason: "The delivery could not be started.",
+		}, nil
+	}
+
+	if 200 <= o.StatusCode && o.StatusCode < 300 {
+		return Decision{
+			Action: Delivered,
+			Reason: "The app accepted it.",
+		}, nil
+	}
+
+	if attempt >= p.MaxAttempts {
+		return Decision{
+			Action: Hold,
+			Reason: "The app still hadn't accepted it after " + strconv.Itoa(attempt) + " tries, so it is held safely.",
+		}, nil
+	}
+
+	retryable := o.TimedOut || o.ConnFailed || o.StatusCode == 408 || o.StatusCode == 429 || (500 <= o.StatusCode && o.StatusCode < 600)
+	if retryable {
+		// Double the wait once per earlier try, stopping at the cap before it can overflow.
+		wait := p.BaseDelay
+		for i := 1; i < attempt; i++ {
+			if p.MaxDelay > 0 && wait >= p.MaxDelay/2 {
+				wait = p.MaxDelay
+				break
+			}
+			wait *= 2
+		}
+		if o.RetryAfter > 0 {
+			wait = o.RetryAfter // the app said how long to wait
+		}
+		if p.MaxDelay > 0 && wait > p.MaxDelay {
+			wait = p.MaxDelay
+		}
+
+		reason := "The app was busy."
+		switch {
+		case o.TimedOut:
+			reason = "The app took too long to answer."
+		case o.ConnFailed:
+			reason = "The app couldn't be reached."
+		case o.StatusCode == 408:
+			reason = "The app ran out of time while handling it."
+		case o.StatusCode >= 500:
+			reason = "The app's server was down."
+		}
+		reason += " Trying again in " + friendly(wait) + "."
+
+		return Decision{Action: Retry, Wait: wait, Reason: reason}, nil
+	}
+
+	return Decision{
+		Action: Hold,
+		Reason: "The app turned it away, and sending the same thing again won't help, so it is held safely.",
+	}, nil
+}
+
+// friendly writes a wait the way a person would say it: "4s", "1 min", "1 min 30s".
+func friendly(d time.Duration) string {
+	d = d.Round(time.Second)
+	if d < time.Minute {
+		return d.String()
+	}
+	mins, secs := int(d/time.Minute), int(d%time.Minute/time.Second)
+	if secs == 0 {
+		return strconv.Itoa(mins) + " min"
+	}
+	return strconv.Itoa(mins) + " min " + strconv.Itoa(secs) + "s"
 }
