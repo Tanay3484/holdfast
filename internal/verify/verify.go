@@ -1,7 +1,7 @@
 // Package verify checks that a webhook really came from its provider.
 //
 //	╔══════════════════════════════════════════════════════════════════════╗
-//	║  LEVEL 1 · SIGNATURE CHECK                              owner: @human ║
+//	║  LEVEL 1 · SIGNATURE CHECK                              owner: @human║
 //	║                                                                      ║
 //	║  Write GitHub and Stripe below. Unlocks:                             ║
 //	║   • the "Is it really from the provider?" panel on every event page  ║
@@ -17,10 +17,13 @@
 package verify
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"strconv"
+	"strings"
 	"time"
-
-	"github.com/Tanay3484/holdfast/internal/wip"
 )
 
 // The four ways a signature check can fail. Return these exactly (or wrap them with %w) so the
@@ -48,7 +51,21 @@ var (
 // Known answer: secret "It's a Secret to Everybody", body "Hello, World!" →
 // "sha256=757107ea0eb2509fc211221cce984b8a37570b6d7586c22c46f4379c8b043e17".
 func GitHub(secret string, body []byte, header string) error {
-	return wip.Locked("verify.GitHub") // TODO(@human, H1): replace this line
+	if header == "" {
+		return ErrMissingSignature
+	} else if !(strings.HasPrefix(header, "sha256=")) {
+		return ErrMalformedHeader
+	}
+	signature, err := hex.DecodeString(strings.TrimPrefix(header, "sha256="))
+	if err != nil {
+		return ErrMalformedHeader
+	}
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write(body)
+	if !hmac.Equal(signature, mac.Sum(nil)) {
+		return ErrBadSignature
+	}
+	return nil
 }
 
 // Stripe checks the Stripe-Signature header.
@@ -66,5 +83,58 @@ func GitHub(secret string, body []byte, header string) error {
 //   - ErrBadSignature if no v1 matches (check this before the timestamp)
 //   - ErrStaleTimestamp if the signature matches but |now - t| > tolerance
 func Stripe(secret string, body []byte, header string, now time.Time, tolerance time.Duration) error {
-	return wip.Locked("verify.Stripe") // TODO(@human, H1): replace this line
+	if header == "" {
+		return ErrMissingSignature
+	}
+
+	// 1. Split "t=…,v1=…,v1=…,v0=…" into the timestamp and every v1 signature.
+	var ts string
+	var v1s []string
+	for _, pair := range strings.Split(header, ",") {
+		key, value, ok := strings.Cut(pair, "=") // "t=1792050000" → "t", "1792050000", true
+		if !ok {
+			continue // no "=" in this piece: skip it
+		}
+		switch key {
+		case "t":
+			ts = value // one timestamp
+		case "v1":
+			v1s = append(v1s, value) // can repeat while a secret is rotated
+		} // v0 and anything else is ignored
+	}
+	if ts == "" || len(v1s) == 0 {
+		return ErrMalformedHeader
+	}
+	t, err := strconv.ParseInt(ts, 10, 64)
+	if err != nil {
+		return ErrMalformedHeader
+	}
+
+	// 2. Make our own seal, exactly as in GitHub, but of "<t>.<body>" instead of the body alone.
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write([]byte(ts + "." + string(body)))
+	want := mac.Sum(nil)
+
+	// 3. If any v1 matches our seal, it's genuine. A v1 that isn't hex simply doesn't match.
+	matched := false
+	for _, v := range v1s {
+		got, err := hex.DecodeString(v)
+		if err == nil && hmac.Equal(got, want) {
+			matched = true
+			break
+		}
+	}
+	if !matched {
+		return ErrBadSignature
+	}
+
+	// 4. Genuine, but is it fresh? Too far from now in either direction could be a replay.
+	age := now.Sub(time.Unix(t, 0))
+	if age < 0 {
+		age = -age
+	}
+	if age > tolerance {
+		return ErrStaleTimestamp
+	}
+	return nil
 }
