@@ -60,3 +60,8 @@ services:
     plan: 2c-4g
     dockerfilePath: ./ollama/Dockerfile
     dockerContext: ./ollama
+    envVars:
+      # Tells Render which port Ollama listens on. Without it, the hostport that holdfast's
+      # HF_OLLAMA_URL is built from defaults to 10000 and every model call is refused.
+      - key: PORT
+        value: "11434"
