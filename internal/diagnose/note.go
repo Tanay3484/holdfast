@@ -49,7 +49,7 @@ func TemplateNote(n NoteFacts) string {
 	if why := keys(n.Titles); why != "" {
 		s += " What happened: " + why + "."
 	}
-	return s + " None of them have been lost. Holdfast is keeping them safe and will send them once the problem is fixed."
+	return s + " None of them have been lost: Holdfast is keeping them safe, and they can be sent again once the problem is fixed."
 }
 
 func counted(m map[string]int) string {

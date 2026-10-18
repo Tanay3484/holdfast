@@ -35,13 +35,13 @@ type Spec struct {
 
 // Demo is the list of demo buttons in display order.
 var Demo = []Spec{
-	{Healthy, "A normal payment", "Everything works. Watch it arrive.", ""},
-	{AppDown, "The shop goes down for a few seconds", "Holdfast keeps trying until the shop is back.", "retries"},
-	{RenamedField, "The payment service renames a field", "The shop can't read it. Holdfast holds it and finds what changed.", "changes"},
-	{Duplicate, "The same payment is sent twice", "Only one copy should reach the shop.", "resend"},
-	{WrongSecret, "Signed with the wrong key", "It may not be genuine, so it is held, not passed on.", "signature"},
-	{SlowApp, "The shop is too slow to answer", "Holdfast stops waiting, retries, then holds it.", ""},
-	{StaleTimestamp, "An old payment is replayed", "The signature is real but an hour old.", "signature"},
+	{Healthy, "Normal payment", "It just arrives.", ""},
+	{AppDown, "Shop goes down", "Retried until it's back.", "retries"},
+	{RenamedField, "Field renamed", "Held, and the change pinpointed.", "changes"},
+	{Duplicate, "Sent twice", "Only one copy gets through.", "resend"},
+	{WrongSecret, "Forged signature", "Held, never passed on.", "signature"},
+	{SlowApp, "Shop too slow", "Retried, then held.", ""},
+	{StaleTimestamp, "Old payment replayed", "Real signature, but too old: held.", "signature"},
 }
 
 // Lookup returns the spec for a fault name.

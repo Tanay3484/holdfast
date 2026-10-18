@@ -102,6 +102,27 @@ func (r *Runner) Run(ctx context.Context, f faults.Fault) error {
 	return fmt.Errorf("unknown demo %q", f)
 }
 
+// Seed fills an empty demo with a short history once the server is up: two payments that arrive, an
+// outage that recovers, a duplicate that is stopped, and one payment held because a field was renamed.
+func (r *Runner) Seed(ctx context.Context) {
+	if counts, err := r.Store.Counts(ctx, RouteName); err != nil || len(counts) > 0 {
+		return
+	}
+	for _, f := range []faults.Fault{faults.Healthy, faults.Healthy, faults.AppDown, faults.Duplicate, faults.RenamedField} {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(1500 * time.Millisecond):
+		}
+		if err := r.Run(ctx, f); err != nil {
+			return
+		}
+		if f == faults.AppDown {
+			time.Sleep(9 * time.Second) // let the outage recover before the next payment
+		}
+	}
+}
+
 func (r *Runner) hasDelivered(ctx context.Context) bool {
 	evs, err := r.Store.ByStatus(ctx, RouteName, store.Delivered)
 	return err == nil && len(evs) > 0

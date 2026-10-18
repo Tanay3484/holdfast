@@ -1,0 +1,27 @@
+{{define "content"}}
+<section class="demo">
+  <div class="wrap">
+    <div class="demo__head">
+      <div>
+        <span class="kicker"><span class="modes__dot modes__dot--demo"></span>Demo · made-up shop, real engine</span>
+        <h1>Break the shop.<br><em>Lose nothing.</em></h1>
+      </div>
+      <a class="btn btn--gh" href="/live">{{template "gh"}}<span>Try it on your repo</span></a>
+    </div>
+    <div class="demo__grid">
+      <div class="controls">
+        <p class="controls__head eyebrow">Pick a problem</p>
+        {{range .Demos}}
+        <form method="post" action="/demo/{{.Fault}}" data-async>
+          <button class="control control--{{.Fault}}" type="submit">
+            <span class="control__label">{{.Label}}</span>
+            <span class="control__explain">{{.Explain}}</span>
+          </button>
+        </form>
+        {{end}}
+      </div>
+      <div class="dash" id="board" data-poll="/fragments/board/{{.Board.Route}}">{{template "board" .}}</div>
+    </div>
+  </div>
+</section>
+{{end}}

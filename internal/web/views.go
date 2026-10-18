@@ -59,7 +59,7 @@ type boardView struct {
 }
 
 func (s *Server) board(ctx context.Context, route string) (*boardView, error) {
-	rt := s.Relay.Routes[route]
+	rt, _ := s.Relay.Route(route)
 	b := &boardView{Route: route, Client: rt.Client, Noun: "event", Public: rt.Public, IsDemo: route == demo.RouteName && s.Shop != nil}
 	if b.Client == "" {
 		b.Client = rt.Name

@@ -52,5 +52,6 @@ Phase 0 happens once per project. Phases 1–4 repeat per feature in its own num
 
 | ID | Feature | Phase | Status |
 |----|---------|-------|--------|
-| 000 | [Brief: Holdfast](000-brief/brief.md) | 0 | Approved by Tanay in chat 2026-10-14 (file header still reads Draft) |
-| 001 | [Holdfast MVP](001-holdfast-mvp/) | 4 | Requirements, design, tasks in Draft; setup built 2026-10-14 at Tanay's request; H1–H4 open |
+| 000 | [Brief: Holdfast](000-brief/brief.md) | 0 | Approved |
+| 001 | [Holdfast MVP](001-holdfast-mvp/) | 4 | Draft; H1–H4 done 2026-10-18; evidence tasks T14–T21 open |
+| 002 | [Demo and Live modes](002-demo-and-live/requirements.md) | 4 | Draft; built 2026-10-18 at Tanay's request; T27–T28 open |

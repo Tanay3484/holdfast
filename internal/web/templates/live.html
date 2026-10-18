@@ -1,0 +1,68 @@
+{{define "content"}}{{$live := .Live}}
+{{if not .User}}
+<section class="pitch pitch--live">
+  <div class="wrap pitch__inner">
+    <span class="kicker"><span class="modes__dot modes__dot--live"></span>Live mode</span>
+    <h1>Your webhooks.<br><em>Never lost again.</em></h1>
+    <p class="pitch__lede">Connect a GitHub repository in one click and watch every event land safely.</p>
+
+    {{if $live.SignInReady}}
+      <a class="btn btn--gh btn--huge" href="/auth/github">{{template "gh"}}<span>Continue with GitHub</span></a>
+    {{else if $live.DevLogin}}
+      <a class="btn btn--gh btn--huge" href="/auth/dev">{{template "gh"}}<span>Continue as local developer</span></a>
+    {{else}}
+      <span class="btn btn--gh btn--huge is-off" aria-disabled="true">{{template "gh"}}<span>Continue with GitHub</span></span>
+      <p class="pitch__off">Sign-in isn't switched on here yet. <a href="/demo">Try the demo →</a></p>
+    {{end}}
+
+    <ul class="chips">
+      <li>{{template "lock"}} Webhook access only</li>
+      <li>{{template "check"}} Free while in preview</li>
+      <li>{{template "check"}} Your data stays on our server</li>
+    </ul>
+
+    <ol class="mini-steps">
+      <li><span>1</span><strong>Sign in</strong><small>with GitHub</small></li>
+      <li><span>2</span><strong>Pick a repo</strong><small>we add the webhook</small></li>
+      <li><span>3</span><strong>Push a commit</strong><small>watch it arrive</small></li>
+    </ol>
+
+    <p class="pitch__aside">{{template "source-badge" "stripe"}} Stripe works too: you connect it by hand after signing in. One-click Stripe sign-in isn't available yet.</p>
+  </div>
+</section>
+{{else}}
+<section class="conns">
+  <div class="wrap">
+    <div class="conns__head">
+      <h1>Your connections</h1>
+      {{if $live.CanAdd}}<a class="btn btn--primary" href="/live/new">+ New connection</a>{{else}}<span class="fine">Limit of {{$live.Max}} reached</span>{{end}}
+    </div>
+
+    {{if $live.Conns}}
+    <ul class="conn-grid">
+      {{range $live.Conns}}
+      <li>
+        <a class="conn-card{{if .Held}} conn-card--held{{end}}" href="/r/{{.Name}}">
+          <span class="conn-card__top">{{template "source-badge" .Source}}<span class="conn-card__where">→ {{.Where}}</span></span>
+          <h3>{{.Label}}</h3>
+          <span class="conn-card__stats">
+            <span class="stat stat--ok"><strong>{{.Arrived}}</strong> arrived</span>
+            <span class="stat{{if .Held}} stat--held{{end}}"><strong>{{.Held}}</strong> held</span>
+            {{if .Moving}}<span class="stat stat--busy"><strong>{{.Moving}}</strong> on the way</span>{{end}}
+          </span>
+        </a>
+      </li>
+      {{end}}
+    </ul>
+    {{else}}
+    <div class="empty-state">
+      <h2>Connect your first repository</h2>
+      <p>Its first webhook shows up within seconds.</p>
+      <a class="btn btn--gh btn--huge" href="/live/new">{{template "gh"}}<span>Choose a repository</span></a>
+      <p class="fine"><a href="/live/new?kind=stripe">Stripe</a> · <a href="/live/new?kind=generic">Other services</a></p>
+    </div>
+    {{end}}
+  </div>
+</section>
+{{end}}
+{{end}}
