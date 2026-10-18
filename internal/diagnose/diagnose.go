@@ -173,12 +173,12 @@ func (d Diagnoser) Diagnose(ctx context.Context, f Facts, mode Mode) Diagnosis {
 		rules.Note = fmt.Sprintf("The AI model answered with an unknown cause (%q), so this is the rule-based answer.", out.Cause)
 		return rules
 	}
-	dg := Diagnosis{Cause: c, Title: Title(c), Summary: strings.TrimSpace(out.Summary), Fix: strings.TrimSpace(out.Fix),
+	dg := Diagnosis{Cause: c, Title: Title(c), Summary: settle(out.Summary), Fix: settle(out.Fix),
 		By: "model", RulesCause: rc}
 	switch {
-	case dg.Summary == "" || len(dg.Summary) > 450:
+	case dg.Summary == "" || len(dg.Summary) > 450 || !finished(dg.Summary):
 		dg.Summary = Summary(c, f)
-		dg.Note = "The AI's summary was empty or too long, so a plain one was put in its place."
+		dg.Note = "The AI's summary was empty, too long or cut off, so a plain one was put in its place."
 	case Jargon(dg.Summary) != "":
 		dg.Summary = Summary(c, f)
 		dg.Note = "The AI's summary used technical words, so a plain one was put in its place."
@@ -206,7 +206,9 @@ func namesRenamedField(fix string, f Facts) bool {
 }
 
 // Amounts such as ₹450 are fine; error numbers only count when they read like one.
-var jargon = regexp.MustCompile(`(?i)\b(http|https|json|hmac|payload|endpoint|status code|api|header|schema|timestamp|(error|status|code)\s+[45]\d\d)\b`)
+var jargon = regexp.MustCompile(`(?i)\b(http|https|json|hmac|payload|endpoint|status code|api|header|schema|timestamp|(error|status|code)\s+[45]\d\d)\b` +
+	// field names such as data.object.customer_id or customer_id: the owner never needs them
+	`|\b[a-z]+(\.[a-z_]+){2,}\b|\b[a-z]+_[a-z_]+\b`)
 
 // Jargon returns the first technical word in s, or "".
 func Jargon(s string) string {
@@ -328,4 +330,23 @@ func clip(s string, n int) string {
 		return s
 	}
 	return s[:n] + "…"
+}
+
+// finished reports whether s ends like a sentence. A summary cut off by the length limit doesn't.
+func finished(s string) bool {
+	s = strings.TrimRight(strings.TrimSpace(s), `"')”’`)
+	return strings.HasSuffix(s, ".") || strings.HasSuffix(s, "!") || strings.HasSuffix(s, "?")
+}
+
+// settle trims what the model wrote after it meant to stop. Gemma sometimes ends a string with ”}
+// (a curly quote, which JSON treats as text) and carries on repeating itself until the length limit;
+// everything from that point on is the loop, not the answer.
+func settle(s string) string {
+	for _, end := range []string{"”}", "”,", "\"}", "\","} {
+		if i := strings.Index(s, end); i >= 0 {
+			s = s[:i]
+		}
+	}
+	s = strings.NewReplacer("”", "", "“", "").Replace(s)
+	return strings.TrimSpace(s)
 }

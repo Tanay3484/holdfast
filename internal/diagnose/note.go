@@ -101,7 +101,7 @@ func (d Diagnoser) Note(ctx context.Context, n NoteFacts) (note string, by strin
 			"Keep every fact, time and number exactly as given and add none. At most three sentences. No technical words."},
 		{Role: "user", Content: tmpl},
 	}
-	schema := map[string]any{"type": "object", "properties": map[string]any{"note": map[string]any{"type": "string"}}, "required": []string{"note"}}
+	schema := map[string]any{"type": "object", "properties": map[string]any{"note": map[string]any{"type": "string", "maxLength": 600}}, "required": []string{"note"}}
 	if err := d.Model.ChatJSON(ctx, msgs, schema, &out); err != nil {
 		return tmpl, "rules"
 	}
