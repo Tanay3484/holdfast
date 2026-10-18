@@ -25,6 +25,7 @@ type Client struct {
 	BaseURL   string
 	Model     string
 	NumThread int // 0 lets Ollama choose
+	MaxTokens int // cap on the reply; a model that never closes its JSON is cut off here
 	HTTP      *http.Client
 }
 
@@ -34,6 +35,7 @@ func New(baseURL, model string, timeout time.Duration, numThread int) *Client {
 		BaseURL:   strings.TrimRight(baseURL, "/"),
 		Model:     model,
 		NumThread: numThread,
+		MaxTokens: 400,
 		HTTP:      &http.Client{Timeout: timeout},
 	}
 }
@@ -41,6 +43,9 @@ func New(baseURL, model string, timeout time.Duration, numThread int) *Client {
 // ChatJSON sends messages, constrains the reply to schema, and decodes it into out.
 func (c *Client) ChatJSON(ctx context.Context, messages []Message, schema any, out any) error {
 	opts := map[string]any{"temperature": 0.2}
+	if c.MaxTokens > 0 {
+		opts["num_predict"] = c.MaxTokens
+	}
 	if c.NumThread > 0 {
 		opts["num_thread"] = c.NumThread
 	}
