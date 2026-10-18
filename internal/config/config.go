@@ -31,6 +31,7 @@ type Config struct {
 	Model        string
 	ModelTimeout time.Duration
 	ModelThreads int
+	ModelTokens  int
 	AdminToken   string
 	Routes       []Route
 	Retention    time.Duration
@@ -71,6 +72,9 @@ func Load() (Config, error) {
 	var err error
 	if c.ModelTimeout, err = time.ParseDuration(env("HF_MODEL_TIMEOUT", "90s")); err != nil {
 		return c, fmt.Errorf("HF_MODEL_TIMEOUT: %w", err)
+	}
+	if c.ModelTokens, err = strconv.Atoi(env("HF_MODEL_MAX_TOKENS", "400")); err != nil {
+		return c, fmt.Errorf("HF_MODEL_MAX_TOKENS: %w", err)
 	}
 	if c.ModelThreads, err = strconv.Atoi(env("HF_MODEL_THREADS", "0")); err != nil {
 		return c, fmt.Errorf("HF_MODEL_THREADS: %w", err)

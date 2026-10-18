@@ -69,6 +69,7 @@ func run(log *slog.Logger) error {
 	}
 
 	model := ollama.New(cfg.OllamaURL, cfg.Model, cfg.ModelTimeout, cfg.ModelThreads)
+	model.MaxTokens = cfg.ModelTokens
 	rl := relay.New(st, routes, diagnose.Diagnoser{Model: model}, cfg.TimeZone, cfg.Retention, log)
 
 	self := "http://127.0.0.1" + cfg.Addr[strings.LastIndex(cfg.Addr, ":"):]
