@@ -2,6 +2,7 @@ package diagnose
 
 import (
 	"context"
+	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
@@ -71,5 +72,42 @@ func TestModelFixMustNameTheRenamedField(t *testing.T) {
 	}
 	if Promise("The app will resend the held events.") == "" {
 		t.Fatal(`"will resend" is a promise`)
+	}
+}
+
+func TestSettleCutsTheLoop(t *testing.T) {
+	looped := "Kabir’s payment is kept safe.”} 2. Kabir’s payment is kept safe.”} 2. Kabir’s"
+	if got := settle(looped); got != "Kabir’s payment is kept safe." {
+		t.Fatalf("settle = %q", got)
+	}
+	if got := settle("Change the app to expect customer.id.” Resend the held events."); got != "Change the app to expect customer.id. Resend the held events." {
+		t.Fatalf("stray quote: %q", got)
+	}
+	for s, want := range map[string]bool{"It is kept safe.": true, "It is kept safe and will": false, "Sent?": true, "": false} {
+		if finished(s) != want {
+			t.Errorf("finished(%q) = %v", s, !want)
+		}
+	}
+}
+
+func TestOwnerSummaryMayNotNameFields(t *testing.T) {
+	for _, s := range []string{"It now uses data.object.customer.id instead.", "The customer_id field moved."} {
+		if Jargon(s) == "" {
+			t.Errorf("Jargon(%q) found nothing", s)
+		}
+	}
+	if w := Jargon("Kabir's ₹1050 payment to Chai & Co. couldn't be processed."); w != "" {
+		t.Errorf("plain sentence flagged: %q", w)
+	}
+}
+
+func TestSchemaPutsTheSummaryBeforeTheFix(t *testing.T) {
+	s := string(schema())
+	if !strings.Contains(s, `"maxLength":480`) || strings.Index(s, `"summary"`) > strings.Index(s, `"fix"`) {
+		t.Fatalf("schema = %s", s)
+	}
+	var v map[string]any
+	if err := json.Unmarshal(schema(), &v); err != nil {
+		t.Fatalf("schema is not valid JSON: %v", err)
 	}
 }

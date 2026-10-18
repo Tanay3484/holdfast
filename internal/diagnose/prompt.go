@@ -1,6 +1,7 @@
 package diagnose
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -13,10 +14,7 @@ Pick the single most likely cause from this list:
 %s
 Then write two things.
 
-"summary" is read by the business owner, who is not technical. Write two or three plain sentences:
-1. What happened to this specific message: name the customer and amount from the Event line if there are any.
-2. Why, in everyday words. If the facts say a field was renamed, say the sender changed how it lays out its messages and the owner's system still expects the old layout. Do not name fields here; the fix does that.
-3. What happens next: it is kept safe, and it can be sent again once their developer has made the change.
+"summary" is read by the business owner, who is not technical. Write two or three plain, flowing sentences, not a list. First say what happened to this specific message, naming the customer and amount from the Event line if there are any. Then say why, in everyday words: if the facts say a field was renamed, say the sender changed how it lays out its messages and the owner's system still expects the old layout, without naming fields (the fix does that). End by saying it is kept safe and can be sent again once their developer has made the change.
 Never use these words: HTTP, JSON, HMAC, payload, endpoint, status code, API, header, schema, timestamp, or an error number.
 Do not say anyone is reviewing, fixing or investigating it, and do not promise anything.
 
@@ -93,18 +91,23 @@ func sigText(sig string) string {
 	return "not checked"
 }
 
-func schema() map[string]any {
-	enum := make([]string, 0, len(Causes))
+// schema is the JSON format the model must follow. It is written out by hand because the field order
+// matters: llama.cpp makes the model write fields in the order listed, and Go would sort map keys into
+// cause, fix, summary. Written that way, Gemma put the whole story in the developer's fix and left the
+// owner a one-line summary. maxLength stops a reply that loops from running on.
+func schema() json.RawMessage {
+	enum, _ := json.Marshal(causeNames())
+	return json.RawMessage(`{"type":"object","properties":{` +
+		`"cause":{"type":"string","enum":` + string(enum) + `},` +
+		`"summary":{"type":"string","maxLength":480},` +
+		`"fix":{"type":"string","maxLength":300}},` +
+		`"required":["cause","summary","fix"]}`)
+}
+
+func causeNames() []string {
+	names := make([]string, 0, len(Causes))
 	for _, c := range Causes {
-		enum = append(enum, string(c.Cause))
+		names = append(names, string(c.Cause))
 	}
-	return map[string]any{
-		"type": "object",
-		"properties": map[string]any{
-			"cause":   map[string]any{"type": "string", "enum": enum},
-			"summary": map[string]any{"type": "string"},
-			"fix":     map[string]any{"type": "string"},
-		},
-		"required": []string{"cause", "summary", "fix"},
-	}
+	return names
 }
