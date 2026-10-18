@@ -20,7 +20,7 @@ The public site has two modes: Demo (`/demo`, Chai & Co., made-up data) and Live
 real webhooks, test app, Stripe by hand). Spec: `specs/002-demo-and-live/requirements.md`. Tanay has no
 Stripe account, so Stripe sign-in is not built and the site and post say so. For local Live testing use
 `HF_DEV_LOGIN=true` (simulated GitHub). Headless Edge won't screenshot signed-in pages with a reused
-profile; save the page with curl, add `<base href>`, and screenshot the file instead.
+profile; save the page with curl, add `<base href>`, and screenshot the file instead. To screenshot CSS animations at a given moment, add `--disable-threaded-animation` with `--virtual-time-budget=<ms>`.
 
 ## The unlock game (finished)
 

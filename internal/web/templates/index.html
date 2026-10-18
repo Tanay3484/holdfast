@@ -88,37 +88,36 @@
       <h2>Five promises, each kept by code.</h2>
       <p>The model explains. It never decides what happens to a message.</p>
     </div>
-    <ol class="steps">
-      <li class="step">
-        <span class="step__n">1</span>
-        <h3>Saved before anything else</h3>
-        <p>The moment a message arrives, Holdfast writes it to disk. Only then does it tell the sender "got it". If anything crashes after that, the message is still there.</p>
-      </li>
-      <li class="step">
-        <span class="step__n">2</span>
-        <h3>Checked at the door</h3>
-        <p>Every message carries a signature only the real sender can make. Anything that doesn't match, or is suspiciously old, is kept aside and never passed on.</p>
-        <p class="step__demo"><span class="sig sig--ok">{{template "check"}} Signed by Stripe</span> <span class="sig sig--bad">Signature didn't match</span></p>
-      </li>
-      <li class="step">
-        <span class="step__n">3</span>
-        <h3>Passed on, patiently</h3>
-        <p>If the app is down or busy, Holdfast waits a little longer each time and tries again. If the app says no for a reason a retry won't fix, it stops and holds the message.</p>
-        <p class="step__demo"><span class="try-chip try-chip--held">Try 1 · down</span><span class="try-chip try-chip--held">Try 2 · down</span><span class="try-chip try-chip--ok">Try 3 · arrived</span></p>
-      </li>
-      <li class="step">
-        <span class="step__n">4</span>
-        <h3>Explained in plain words</h3>
-        <p>Code compares a failed message with the last one that worked and finds exactly what moved. Gemma turns that into a sentence for the owner and a fix for you.</p>
-        <p class="step__demo"><code class="chg chg--removed">customer_id</code> <code class="chg chg--added">customer.id</code></p>
-      </li>
-      <li class="step">
-        <span class="step__n">5</span>
-        <h3>Sent again, never twice</h3>
-        <p>One button sends everything held, in the order it arrived. Anything already delivered, or that arrived twice, is left out, so a payment is never counted twice.</p>
-        <p class="step__demo"><span class="pill pill--delivered">Arrived</span> <span class="pill pill--duplicate">Duplicate stopped</span></p>
-      </li>
-    </ol>
+    <div class="story-ani" role="img" aria-label="A payment travels from Stripe through Holdfast to the shop: it is saved, its signature checked, retried while the shop is down, held and explained, then sent again once.">
+      <svg class="ani" viewBox="0 0 720 290" aria-hidden="true">
+        <path class="ani-wire" d="M140 135 H300 M420 135 H580"/>
+        <g class="ani-node" transform="translate(20 100)"><rect width="120" height="70" rx="16"/><text x="60" y="32">Stripe</text><text x="60" y="51" class="ani-small">sends a payment</text></g>
+        <g class="ani-node ani-shop" transform="translate(580 100)"><rect width="120" height="70" rx="16"/><text x="60" y="32">The shop</text><text x="60" y="51" class="ani-small">your client's app</text></g>
+        <g class="ani-vault" transform="translate(300 60)"><rect width="120" height="150" rx="22"/><circle cx="60" cy="34" r="5"/><path d="M60 39v46M48 52h24M42 68a18 18 0 0 0 36 0"/><text x="60" y="128">Holdfast</text></g>
+
+        <!-- step 1: saved -->
+        <g class="ani-disk" transform="translate(288 186)"><rect width="34" height="26" rx="6"/><path d="M8 8h18M8 15h12"/></g>
+        <!-- step 2: checked -->
+        <g class="ani-shield" transform="translate(398 100)"><circle class="ani-shield__bg" r="19"/><path d="M0 -14l12 5v8c0 8-5 13-12 16-7-3-12-8-12-16v-8z"/><path class="ani-tick" d="M-5 1l4 4 7-8"/></g>
+        <!-- step 3: down, then held -->
+        <g class="ani-down" transform="translate(640 82)"><circle r="13"/><path d="M-5 -5l10 10M5 -5l-10 10"/></g>
+        <g class="ani-tray" transform="translate(360 268)"><rect x="-58" y="-13" width="116" height="26" rx="13"/><text y="5">held safely</text></g>
+        <!-- step 4: explained -->
+        <g class="ani-bubble" transform="translate(360 22)"><rect x="-150" y="-18" width="300" height="36" rx="12"/><path d="M-8 18l8 9 8-9"/><text y="5">customer_id moved to customer.id</text></g>
+        <!-- step 5: sent again, once -->
+        <g class="ani-ok" transform="translate(640 82)"><circle r="13"/><path d="M-6 0l4 4 8-8"/></g>
+        <g class="ani-dup"><rect x="-14" y="-10" width="28" height="20" rx="4"/><path d="M-14 -8l14 9 14-9"/><path class="ani-cross" d="M-16 -12l32 24M16 -12l-32 24"/></g>
+
+        <g class="ani-env"><rect x="-14" y="-10" width="28" height="20" rx="4"/><path d="M-14 -8l14 9 14-9"/></g>
+      </svg>
+      <ol class="ani-steps">
+        <li><span>1</span><strong>Saved first</strong><small>On disk before "got it"</small></li>
+        <li><span>2</span><strong>Checked</strong><small>Forgeries kept aside</small></li>
+        <li><span>3</span><strong>Retried, then held</strong><small>A down shop loses nothing</small></li>
+        <li><span>4</span><strong>Explained</strong><small>Gemma, in plain words</small></li>
+        <li><span>5</span><strong>Sent again, once</strong><small>Duplicates never get through</small></li>
+      </ol>
+    </div>
   </div>
 </section>
 
